@@ -17,17 +17,22 @@ func VertexInterp(isolevel: float, p1: Vector3, p2: Vector3, valp1: float, valp2
 
 class TRIANGLE:
 	var p: PackedVector3Array
+	var n: PackedVector3Array
 
 class GRIDCELL:
 	var p: PackedVector3Array
 	var val: PackedFloat32Array
+	var norm: PackedVector3Array
 
 func Polygonize(grid: GRIDCELL, isolevel: float, triangles) -> int:
 	var i: int
 	var ntriang: int
 	var cubeindex: int
 	var vertlist: PackedVector3Array
+	var normlist: PackedVector3Array
 	vertlist.resize(12)
+	normlist.resize(12)
+	
 	var edgeTables: NDArray = nd.array([
 		0x0, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
 		0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
@@ -347,28 +352,40 @@ func Polygonize(grid: GRIDCELL, isolevel: float, triangles) -> int:
 	# Find the vertices where the surface intersects the cube
 	if edgeTables.get_int(cubeindex) & 1:
 		vertlist[0] = VertexInterp(isolevel, grid.p[0], grid.p[1], grid.val[0], grid.val[1])
+		normlist[0] = (grid.norm[0] + grid.norm[1]) / (grid.norm[0] + grid.norm[1]).length()
 	if edgeTables.get_int(cubeindex) & 2:
 		vertlist[1] = VertexInterp(isolevel, grid.p[1], grid.p[2], grid.val[1], grid.val[2])
+		normlist[1] = (grid.norm[1] + grid.norm[2]) / (grid.norm[1] + grid.norm[2]).length()
 	if edgeTables.get_int(cubeindex) & 4:
 		vertlist[2] = VertexInterp(isolevel, grid.p[2], grid.p[3], grid.val[2], grid.val[3])
+		normlist[2] = (grid.norm[2] + grid.norm[3]) / (grid.norm[2] + grid.norm[3]).length()
 	if edgeTables.get_int(cubeindex) & 8:
 		vertlist[3] = VertexInterp(isolevel, grid.p[3], grid.p[0], grid.val[3], grid.val[0])
+		normlist[3] = (grid.norm[3] + grid.norm[0]) / (grid.norm[3] + grid.norm[0]).length()
 	if edgeTables.get_int(cubeindex) & 16:
 		vertlist[4] = VertexInterp(isolevel, grid.p[4], grid.p[5], grid.val[4], grid.val[5])
+		normlist[4] = (grid.norm[4] + grid.norm[5]) / (grid.norm[4] + grid.norm[5]).length()
 	if edgeTables.get_int(cubeindex) & 32:
 		vertlist[5] = VertexInterp(isolevel, grid.p[5], grid.p[6], grid.val[5], grid.val[6])
+		normlist[5] = (grid.norm[5] + grid.norm[6]) / (grid.norm[5] + grid.norm[6]).length()
 	if edgeTables.get_int(cubeindex) & 64:
 		vertlist[6] = VertexInterp(isolevel, grid.p[6], grid.p[7], grid.val[6], grid.val[7])
+		normlist[6] = (grid.norm[6] + grid.norm[7]) / (grid.norm[6] + grid.norm[7]).length()
 	if edgeTables.get_int(cubeindex) & 128:
 		vertlist[7] = VertexInterp(isolevel, grid.p[7], grid.p[4], grid.val[7], grid.val[4])
+		normlist[7] = (grid.norm[7] + grid.norm[4]) / (grid.norm[7] + grid.norm[4]).length()
 	if edgeTables.get_int(cubeindex) & 256:
 		vertlist[8] = VertexInterp(isolevel, grid.p[0], grid.p[4], grid.val[0], grid.val[4])
+		normlist[8] = (grid.norm[0] + grid.norm[4]) / (grid.norm[0] + grid.norm[4]).length()
 	if edgeTables.get_int(cubeindex) & 512:
 		vertlist[9] = VertexInterp(isolevel, grid.p[1], grid.p[5], grid.val[1], grid.val[5])
+		normlist[9] = (grid.norm[1] + grid.norm[5]) / (grid.norm[1] + grid.norm[5]).length()
 	if edgeTables.get_int(cubeindex) & 1024:
 		vertlist[10] = VertexInterp(isolevel, grid.p[2], grid.p[6], grid.val[2], grid.val[6])
+		normlist[10] = (grid.norm[2] + grid.norm[6]) / (grid.norm[2] + grid.norm[6]).length()
 	if edgeTables.get_int(cubeindex) & 2048:
 		vertlist[11] = VertexInterp(isolevel, grid.p[3], grid.p[7], grid.val[3], grid.val[7])
+		normlist[11] = (grid.norm[3] + grid.norm[7]) / (grid.norm[3] + grid.norm[7]).length()
 	
 	# Create the traingle
 	ntriang = 0
@@ -378,9 +395,13 @@ func Polygonize(grid: GRIDCELL, isolevel: float, triangles) -> int:
 	while triTable.get_int(cubeindex, i) != -1:
 		triangles[ntriang] = TRIANGLE.new()
 		triangles[ntriang].p.resize(3)
+		triangles[ntriang].n.resize(3)
 		triangles[ntriang].p[0] = vertlist[triTable.get_int(cubeindex, i)]
 		triangles[ntriang].p[1] = vertlist[triTable.get_int(cubeindex, i+1)]
 		triangles[ntriang].p[2] = vertlist[triTable.get_int(cubeindex, i+2)]
+		triangles[ntriang].n[0] = normlist[triTable.get_int(cubeindex, i)]
+		triangles[ntriang].n[1] = normlist[triTable.get_int(cubeindex, i+1)]
+		triangles[ntriang].n[2] = normlist[triTable.get_int(cubeindex, i+2)]
 		i += 3
 		ntriang += 1
 	
