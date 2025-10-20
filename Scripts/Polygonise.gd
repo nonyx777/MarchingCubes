@@ -352,40 +352,40 @@ func Polygonize(grid: GRIDCELL, isolevel: float, triangles) -> int:
 	# Find the vertices where the surface intersects the cube
 	if edgeTables.get_int(cubeindex) & 1:
 		vertlist[0] = VertexInterp(isolevel, grid.p[0], grid.p[1], grid.val[0], grid.val[1])
-		normlist[0] = (grid.norm[0] + grid.norm[1]) / (grid.norm[0] + grid.norm[1]).length()
+		normlist[0] = VertexInterp(isolevel, grid.norm[0], grid.norm[1], grid.val[0], grid.val[1])
 	if edgeTables.get_int(cubeindex) & 2:
 		vertlist[1] = VertexInterp(isolevel, grid.p[1], grid.p[2], grid.val[1], grid.val[2])
-		normlist[1] = (grid.norm[1] + grid.norm[2]) / (grid.norm[1] + grid.norm[2]).length()
+		normlist[1] = VertexInterp(isolevel, grid.norm[1], grid.norm[2], grid.val[1], grid.val[2])
 	if edgeTables.get_int(cubeindex) & 4:
 		vertlist[2] = VertexInterp(isolevel, grid.p[2], grid.p[3], grid.val[2], grid.val[3])
-		normlist[2] = (grid.norm[2] + grid.norm[3]) / (grid.norm[2] + grid.norm[3]).length()
+		normlist[2] = VertexInterp(isolevel, grid.norm[2], grid.norm[3], grid.val[2], grid.val[3])
 	if edgeTables.get_int(cubeindex) & 8:
 		vertlist[3] = VertexInterp(isolevel, grid.p[3], grid.p[0], grid.val[3], grid.val[0])
-		normlist[3] = (grid.norm[3] + grid.norm[0]) / (grid.norm[3] + grid.norm[0]).length()
+		normlist[3] = VertexInterp(isolevel, grid.norm[3], grid.norm[0], grid.val[3], grid.val[0])
 	if edgeTables.get_int(cubeindex) & 16:
 		vertlist[4] = VertexInterp(isolevel, grid.p[4], grid.p[5], grid.val[4], grid.val[5])
-		normlist[4] = (grid.norm[4] + grid.norm[5]) / (grid.norm[4] + grid.norm[5]).length()
+		normlist[4] = VertexInterp(isolevel, grid.norm[4], grid.norm[5], grid.val[4], grid.val[5])
 	if edgeTables.get_int(cubeindex) & 32:
 		vertlist[5] = VertexInterp(isolevel, grid.p[5], grid.p[6], grid.val[5], grid.val[6])
-		normlist[5] = (grid.norm[5] + grid.norm[6]) / (grid.norm[5] + grid.norm[6]).length()
+		normlist[5] = VertexInterp(isolevel, grid.norm[5], grid.norm[6], grid.val[5], grid.val[6])
 	if edgeTables.get_int(cubeindex) & 64:
 		vertlist[6] = VertexInterp(isolevel, grid.p[6], grid.p[7], grid.val[6], grid.val[7])
-		normlist[6] = (grid.norm[6] + grid.norm[7]) / (grid.norm[6] + grid.norm[7]).length()
+		normlist[6] = VertexInterp(isolevel, grid.norm[6], grid.norm[7], grid.val[6], grid.val[7])
 	if edgeTables.get_int(cubeindex) & 128:
 		vertlist[7] = VertexInterp(isolevel, grid.p[7], grid.p[4], grid.val[7], grid.val[4])
-		normlist[7] = (grid.norm[7] + grid.norm[4]) / (grid.norm[7] + grid.norm[4]).length()
+		normlist[7] = VertexInterp(isolevel, grid.norm[7], grid.norm[4], grid.val[7], grid.val[4])
 	if edgeTables.get_int(cubeindex) & 256:
 		vertlist[8] = VertexInterp(isolevel, grid.p[0], grid.p[4], grid.val[0], grid.val[4])
-		normlist[8] = (grid.norm[0] + grid.norm[4]) / (grid.norm[0] + grid.norm[4]).length()
+		normlist[8] = VertexInterp(isolevel, grid.norm[0], grid.norm[4], grid.val[0], grid.val[4])
 	if edgeTables.get_int(cubeindex) & 512:
 		vertlist[9] = VertexInterp(isolevel, grid.p[1], grid.p[5], grid.val[1], grid.val[5])
-		normlist[9] = (grid.norm[1] + grid.norm[5]) / (grid.norm[1] + grid.norm[5]).length()
+		normlist[9] = VertexInterp(isolevel, grid.norm[1], grid.norm[5], grid.val[1], grid.val[5])
 	if edgeTables.get_int(cubeindex) & 1024:
 		vertlist[10] = VertexInterp(isolevel, grid.p[2], grid.p[6], grid.val[2], grid.val[6])
-		normlist[10] = (grid.norm[2] + grid.norm[6]) / (grid.norm[2] + grid.norm[6]).length()
+		normlist[10] = VertexInterp(isolevel, grid.norm[2], grid.norm[6], grid.val[2], grid.val[6])
 	if edgeTables.get_int(cubeindex) & 2048:
 		vertlist[11] = VertexInterp(isolevel, grid.p[3], grid.p[7], grid.val[3], grid.val[7])
-		normlist[11] = (grid.norm[3] + grid.norm[7]) / (grid.norm[3] + grid.norm[7]).length()
+		normlist[11] = VertexInterp(isolevel, grid.norm[3], grid.norm[7], grid.val[3], grid.val[7])
 	
 	# Create the traingle
 	ntriang = 0

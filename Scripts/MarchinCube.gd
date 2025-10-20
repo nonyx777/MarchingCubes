@@ -9,6 +9,12 @@ var points: PackedVector3Array = []
 var gridcells: Array = []
 var triangles: Array = []
 
+# surface
+var surface_array = Array()
+var verts: PackedVector3Array = PackedVector3Array()
+var indices: PackedInt32Array = PackedInt32Array()
+var normals: PackedVector3Array = PackedVector3Array()
+
 @onready var meshInstance: MeshInstance3D = $MeshInstance3D
 
 
@@ -54,22 +60,27 @@ func get_cell(x, y, z) -> Polygonise.GRIDCELL:
 	
 	return grid
 
-func _ready() -> void:
-	# initialize surface array
-	var surface_array = Array()
-	surface_array.resize(Mesh.ARRAY_MAX)
-	var verts: PackedVector3Array = PackedVector3Array()
-	var indices: PackedInt32Array = PackedInt32Array()
-	var normals: PackedVector3Array = PackedVector3Array()
-	
-	var polygonize: Polygonise = Polygonise.new()
-	triangles.resize(5)
-	
+func construct_grid() -> void:
 	generate_points(grid_size.x, grid_size.y, grid_size.z, spacing)
 	for z in range(grid_size.z):
 		for y in range(grid_size.y):
 			for x in range(grid_size.x):
 				gridcells.append(get_cell(x, y, z))
+
+func main_march() -> void:
+	# initialize surface array
+	meshInstance.mesh.clear_surfaces()
+	surface_array.resize(Mesh.ARRAY_MAX)
+	surface_array[Mesh.ARRAY_VERTEX] = PackedVector3Array()
+	surface_array[Mesh.ARRAY_INDEX] = PackedInt32Array()
+	surface_array[Mesh.ARRAY_NORMAL] = PackedVector3Array()
+	
+	verts.clear()
+	indices.clear()
+	normals.clear()
+	
+	var polygonize: Polygonise = Polygonise.new()
+	triangles.resize(5)
 	
 	var n = 0
 	for cell in gridcells:
@@ -115,4 +126,12 @@ func _ready() -> void:
 	print("Number of Triangles: ", n)
 	print("Number of Vertices: ", verts.size())
 	print("Number of Indices: ", indices.size())
-	#print("Center GridCell: ", gridcells[555].p)
+	print("Number of Normals: ", normals.size())
+
+func _ready() -> void:
+	construct_grid()
+	main_march()
+#
+func _on_h_slider_value_changed(value: float) -> void:
+	isolevel = value
+	main_march()
