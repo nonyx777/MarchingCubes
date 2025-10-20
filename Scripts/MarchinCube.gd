@@ -17,7 +17,6 @@ var normals: PackedVector3Array = PackedVector3Array()
 
 @onready var meshInstance: MeshInstance3D = $MeshInstance3D
 
-
 func sphere_sdf(p: Vector3, r: float):
 	return (p - Vector3(5, 5, 5)).length() - r
 
