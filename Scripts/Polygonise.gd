@@ -16,6 +16,15 @@ func VertexInterp(isolevel: float, p1: Vector3, p2: Vector3, valp1: float, valp2
 	p = p1 + mu * (p2 - p1)
 	return p
 
+# Data orientize
+# triangle
+var tri_p: PackedVector3Array
+var tri_n: PackedVector3Array
+# GridCell
+var gc_p: PackedVector3Array
+var gc_val: PackedVector3Array
+var gc_norm: PackedVector3Array
+
 class TRIANGLE:
 	var p: PackedVector3Array
 	var n: PackedVector3Array
@@ -25,6 +34,8 @@ class GRIDCELL:
 	var val: PackedFloat32Array
 	var norm: PackedVector3Array
 
+# polygonize function should work on all the array instead of processing a single gridcell at a time
+# it should take in p, val, and norm separately
 func Polygonize(grid: GRIDCELL, isolevel: float, triangles) -> int:
 	var i: int
 	var ntriang: int
@@ -33,6 +44,9 @@ func Polygonize(grid: GRIDCELL, isolevel: float, triangles) -> int:
 	var normlist: PackedVector3Array
 	vertlist.resize(12)
 	normlist.resize(12)
+	
+	# after this everything should happen in a forloop
+	# this means every neighbouring element should be computed everytime
 	
 	#Determine the index into the edge table
 	cubeindex = 0
@@ -112,5 +126,7 @@ func Polygonize(grid: GRIDCELL, isolevel: float, triangles) -> int:
 		triangles[ntriang].n[2] = normlist[lookup.triTable.get_int(cubeindex, i+2)]
 		i += 3
 		ntriang += 1
+	
+	# Ultimately I want to processs and populate the elements inside the tri_p and tri_n
 	
 	return ntriang
