@@ -5,18 +5,8 @@ var edgeTable = lookup.edgeTables
 var triTable = lookup.triTable
 
 func VertexInterp(isolevel: float, p1: Vector3, p2: Vector3, valp1: float, valp2: float) -> Vector3:
-	var mu: float
-	var p: Vector3
-	
-	if abs(isolevel - valp1) < 0.00001:
-		return p1
-	if abs(isolevel - valp2) < 0.00001:
-		return p2
-	if abs(valp1 - valp2) < 0.00001:
-		return p1
-	mu = (isolevel - valp1) / (valp2 - valp1)
-	p = p1 + mu * (p2 - p1)
-	return p
+	var mu: float = (isolevel - valp1) / (valp2 - valp1)
+	return p1 + mu * (p2 - p1)
 
 # polygonize function should work on all the array instead of processing a single gridcell at a time
 # it should take in p, val, and norm separately
