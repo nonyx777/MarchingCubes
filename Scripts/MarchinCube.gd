@@ -12,6 +12,8 @@ var grid_val: PackedFloat32Array
 # triangle related
 var tri_pos: PackedVector3Array
 var tri_norm: PackedVector3Array
+# border element indices
+var border_indices: PackedInt32Array
 
 # surface
 var surface_array = Array()
@@ -30,16 +32,19 @@ func generate_points(sx: int, sy: int, sz: int, spacing_: float):
 				grid_pos.append(Vector3(x * spacing_, y * spacing_, z * spacing_))
 
 func get_point_index(x: int, y: int, z: int, sx: int, sy: int):
-	return z * (sy + 1) * (sx + 1) + y * (sx + 1) + x
+	return z * (sy) * (sx) + y * (sx) + x
 
 func setup_cells(i: int, sx: int, sy: int, sz: int) -> void:
+	if i in border_indices:
+		return
+	
 	var i0 = i
 	var i1 = i0 + 1
-	var i2 = i0 + (sx + 1)
+	var i2 = i0 + (sx)
 	var i3 = i2 + 1
-	var i4 = i0 + (sy + 1) * (sx + 1)
+	var i4 = i0 + (sy) * (sx)
 	var i5 = i4 + 1
-	var i6 = i4 + (sx + 1)
+	var i6 = i4 + (sx)
 	var i7 = i6 + 1
 	
 	if i7 >= (sx * sx * sx):
@@ -64,12 +69,22 @@ func setup_cells(i: int, sx: int, sy: int, sz: int) -> void:
 
 func construct_grid() -> void:
 	generate_points(grid_size.x, grid_size.y, grid_size.z, spacing)
+	get_border()
 	grid_val.clear()
 	grid_norm.clear()
 	grid_val.resize(grid_pos.size())
 	grid_norm.resize(grid_pos.size())
 	for i in range(grid_pos.size()):
 		setup_cells(i, grid_size.x, grid_size.y, grid_size.z)
+
+func get_border() -> void:
+	var size: int = grid_size.z
+	var start_idx: int = (size * size) - size
+	var end_idx: int = size * size * size - size
+	var step: int = size * size
+	for i in range(start_idx, end_idx, step):
+		for j in range(size):
+			border_indices.append(i + j)
 
 func main_march() -> void:
 	tri_pos.clear()
@@ -84,7 +99,7 @@ func main_march() -> void:
 	indices.clear()
 	
 	var polygonize: Polygonise = Polygonise.new()
-	var n = polygonize.Polygonize(grid_pos, grid_norm, grid_val, isolevel, grid_size.x, grid_size.y, tri_pos, tri_norm)
+	var n = polygonize.Polygonize(grid_pos, grid_norm, grid_val, isolevel, grid_size.x, grid_size.y, tri_pos, tri_norm, border_indices)
 	
 	
 	for i in range(n*3):

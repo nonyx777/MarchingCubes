@@ -10,7 +10,7 @@ func VertexInterp(isolevel: float, p1: Vector3, p2: Vector3, valp1: float, valp2
 
 # polygonize function should work on all the array instead of processing a single gridcell at a time
 # it should take in p, val, and norm separately
-func Polygonize(gc_pos: PackedVector3Array, gc_norm: PackedVector3Array, gc_val: PackedFloat32Array, isolevel: float, sx: int, sy:int, tri_pos: PackedVector3Array, tri_norm: PackedVector3Array) -> int:
+func Polygonize(gc_pos: PackedVector3Array, gc_norm: PackedVector3Array, gc_val: PackedFloat32Array, isolevel: float, sx: int, sy:int, tri_pos: PackedVector3Array, tri_norm: PackedVector3Array, border_indices: PackedInt32Array) -> int:
 	var i: int
 	var ntriang: int = 0
 	
@@ -20,19 +20,31 @@ func Polygonize(gc_pos: PackedVector3Array, gc_norm: PackedVector3Array, gc_val:
 	normlist.resize(12)
 	# after this everything should happen in a forloop
 	# this means every neighbouring element should be computed everytime
+	var total_size: int = sx * sx * sx
 	for idx in range(gc_pos.size()):
+		if idx in border_indices or (idx + 1) % sx == 0:
+			continue
+		
 		# Calculate neighbours
 		var i0: int = idx
 		var i1: int = i0 + 1
-		var i2: int = i0 + (sx + 1)
+		var i2: int = i0 + (sx)
 		var i3: int = i2 + 1
-		var i4: int = i0 + (sy + 1) * (sx + 1)
+		var i4: int = i0 + (sy) * (sx)
 		var i5: int = i4 + 1
-		var i6: int = i4 + (sx + 1)
+		var i6: int = i4 + (sx)
 		var i7: int = i6 + 1
 		
-		if i7 >= (sx * sx * sx):
+		if i7 >= total_size:
 			continue
+		
+		# swap for correct triangle orientation
+		var temp_x: int = i2
+		i2 = i3
+		i3 = temp_x
+		temp_x = i6
+		i6 = i7
+		i7 = temp_x
 		
 		#Determine the index into the edge table
 		var cubeindex: int = 0
