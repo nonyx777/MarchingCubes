@@ -48,22 +48,15 @@ func Polygonize(gc_pos: PackedVector3Array, gc_norm: PackedVector3Array, gc_val:
 		
 		#Determine the index into the edge table
 		var cubeindex: int = 0
-		if gc_val[i0] < isolevel:
-			cubeindex |= 1
-		if gc_val[i1] < isolevel:
-			cubeindex |= 2
-		if gc_val[i2] < isolevel:
-			cubeindex |= 4
-		if gc_val[i3] < isolevel:
-			cubeindex |= 8
-		if gc_val[i4] < isolevel:
-			cubeindex |= 16
-		if gc_val[i5] < isolevel:
-			cubeindex |= 32
-		if gc_val[i6] < isolevel:
-			cubeindex |= 64
-		if gc_val[i7] < isolevel:
-			cubeindex |= 128
+		
+		cubeindex |= int(gc_val[i0] < isolevel) << 0
+		cubeindex |= int(gc_val[i1] < isolevel) << 1
+		cubeindex |= int(gc_val[i2] < isolevel) << 2
+		cubeindex |= int(gc_val[i3] < isolevel) << 3
+		cubeindex |= int(gc_val[i4] < isolevel) << 4
+		cubeindex |= int(gc_val[i5] < isolevel) << 5
+		cubeindex |= int(gc_val[i6] < isolevel) << 6
+		cubeindex |= int(gc_val[i7] < isolevel) << 7
 	
 		# Cube is entirely in/out of the surface
 		if edgeTable.get_int(cubeindex) == 0:
