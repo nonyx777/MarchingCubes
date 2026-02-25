@@ -1,6 +1,12 @@
 extends Node
 
-var isolevel: float = 2
+var isolevel: float = 0
+var torus_parameter: Vector2 = Vector2(2, 0.5)
+var noise := FastNoiseLite.new()
+
+var sphere_radius: float = 2
+var torus_radius: float = 2
+var noise_randomness: float = 5
 
 # grid
 var grid_size: Vector3i = Vector3i(10, 10, 10)
@@ -23,6 +29,31 @@ var indices: PackedInt32Array = PackedInt32Array()
 
 func sphere_sdf(p: Vector3, r: float):
 	return (p - Vector3(5, 5, 5)).length() - r
+
+func torus_sdf(p: Vector3, t: Vector2):
+	var q = Vector2(Vector2(p.x, p.z).length() - t.x, p.y)
+	return q.length() - t.y
+
+func noise_sdf(p: Vector3, r: float):
+	var amplitude = 10
+	
+	var height = noise.get_noise_3d(
+		p.x * r,
+		p.y * r,
+		p.z * r
+	) * amplitude
+	return height
+
+func sphere_density(p: Vector3, r: float) -> float:
+	var center = Vector3(5, 5, 5)
+	return sphere_sdf(p - center, r)
+
+func torus_density(p: Vector3, t: Vector2) -> float:
+	var center = Vector3(5, 5, 5)
+	return torus_sdf(p - center, t)
+
+func noise_density(p: Vector3, r: float) -> float:
+	return noise_sdf(p, r)
 
 func generate_points(sx: int, sy: int, sz: int, spacing_: float):
 	grid_pos.clear()
@@ -50,21 +81,21 @@ func setup_cells(i: int, sx: int, sy: int, sz: int) -> void:
 	if i7 >= (sx * sx * sx):
 		return
 	
-	grid_val[i0] = sphere_sdf(grid_pos[i0], isolevel)
-	grid_val[i1] = sphere_sdf(grid_pos[i1], isolevel)
-	grid_val[i2] = sphere_sdf(grid_pos[i2], isolevel)
-	grid_val[i3] = sphere_sdf(grid_pos[i3], isolevel)
-	grid_val[i4] = sphere_sdf(grid_pos[i4], isolevel)
-	grid_val[i5] = sphere_sdf(grid_pos[i5], isolevel)
-	grid_val[i6] = sphere_sdf(grid_pos[i6], isolevel)
-	grid_val[i7] = sphere_sdf(grid_pos[i7], isolevel)
+	grid_val[i0] = noise_density(grid_pos[i0], noise_randomness)
+	grid_val[i1] = noise_density(grid_pos[i1], noise_randomness)
+	grid_val[i2] = noise_density(grid_pos[i2], noise_randomness)
+	grid_val[i3] = noise_density(grid_pos[i3], noise_randomness)
+	grid_val[i4] = noise_density(grid_pos[i4], noise_randomness)
+	grid_val[i5] = noise_density(grid_pos[i5], noise_randomness)
+	grid_val[i6] = noise_density(grid_pos[i6], noise_randomness)
+	grid_val[i7] = noise_density(grid_pos[i7], noise_randomness)
 	
 	# Computer normal using central difference
 	for idx in [i0, i1, i2, i3, i4, i5, i6, i7]:
 		var pos: Vector3 = grid_pos[idx]
-		var n_x = sphere_sdf(Vector3(pos.x + 1, pos.y, pos.z) - Vector3(pos.x-1, pos.y, pos.z), isolevel) / sx
-		var n_y = sphere_sdf(Vector3(pos.x, pos.y + 1, pos.z) - Vector3(pos.x, pos.y-1, pos.z), isolevel) / sy
-		var n_z = sphere_sdf(Vector3(pos.x, pos.y, pos.z + 1) - Vector3(pos.x, pos.y, pos.z - 1), isolevel) / sz
+		var n_x = noise_density(Vector3(pos.x + 1, pos.y, pos.z) - Vector3(pos.x-1, pos.y, pos.z), noise_randomness) / sx
+		var n_y = noise_density(Vector3(pos.x, pos.y + 1, pos.z) - Vector3(pos.x, pos.y-1, pos.z), noise_randomness) / sy
+		var n_z = noise_density(Vector3(pos.x, pos.y, pos.z + 1) - Vector3(pos.x, pos.y, pos.z - 1), noise_randomness) / sz
 		grid_norm[idx] = Vector3(n_x, n_y, n_z)
 
 func construct_grid() -> void:
@@ -98,6 +129,8 @@ func main_march() -> void:
 	
 	indices.clear()
 	
+	for i in range(grid_pos.size()):
+		setup_cells(i, grid_size.x, grid_size.y, grid_size.z)
 	var polygonize: Polygonise = Polygonise.new()
 	var n = polygonize.Polygonize(grid_pos, grid_norm, grid_val, isolevel, grid_size.x, grid_size.y, tri_pos, tri_norm, border_indices)
 	
@@ -141,5 +174,7 @@ func _ready() -> void:
 	main_march()
 
 func _on_h_slider_value_changed(value: float) -> void:
-	isolevel = value
+	sphere_radius = value
+	torus_radius = value
+	noise_randomness = value * 10
 	main_march()
