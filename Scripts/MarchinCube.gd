@@ -28,7 +28,7 @@ var indices: PackedInt32Array = PackedInt32Array()
 @onready var meshInstance: MeshInstance3D = $MeshInstance3D
 
 func sphere_sdf(p: Vector3, r: float):
-	return (p - Vector3(5, 5, 5)).length() - r
+	return p.length() - r
 
 func torus_sdf(p: Vector3, t: Vector2):
 	var q = Vector2(Vector2(p.x, p.z).length() - t.x, p.y)
