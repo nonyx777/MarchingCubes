@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://cxagvgp6w2qcf"
+path="res://.godot/imported/populate_triangles.glsl-7fa3d5c231b1f6c6e939c586d77331a5.res"
+
+[deps]
+
+source_file="res://Scripts/populate_triangles.glsl"
+dest_files=["res://.godot/imported/populate_triangles.glsl-7fa3d5c231b1f6c6e939c586d77331a5.res"]
+
+[params]
+
