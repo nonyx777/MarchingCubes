@@ -8,8 +8,11 @@ var sphere_radius: float = 2
 var torus_radius: float = 2
 var noise_randomness: float = 5
 
+var polygonize: Polygonise
+
 # grid
 var grid_size: Vector3i = Vector3i(10, 10, 10)
+var total_point_count: int
 var spacing: float = 1
 # grid cell related
 var grid_pos: PackedVector3Array
@@ -24,6 +27,13 @@ var border_indices: PackedInt32Array
 # surface
 var surface_array = Array()
 var indices: PackedInt32Array = PackedInt32Array()
+
+# Compute shader related variables
+var rd: RenderingDevice
+var compute_list: int
+var populate_shaderfile: Resource
+var populate_shaderfile_spirv: RDShaderSPIRV
+var populate_shader
 
 @onready var meshInstance: MeshInstance3D = $MeshInstance3D
 
@@ -99,6 +109,7 @@ func setup_cells(i: int, sx: int, sy: int, sz: int) -> void:
 		grid_norm[idx] = Vector3(n_x, n_y, n_z).normalized()
 
 func construct_grid() -> void:
+	total_point_count = grid_size.x * grid_size.y * grid_size.z
 	generate_points(grid_size.x, grid_size.y, grid_size.z, spacing)
 	get_border()
 	grid_val.clear()
@@ -117,6 +128,88 @@ func get_border() -> void:
 		for j in range(size):
 			border_indices.append(i + j)
 
+func setup_compute() -> void:
+	var tri_size: int = grid_pos.size() * 20
+	tri_pos.resize(tri_size)
+	tri_norm.resize(tri_size)
+	
+	rd = RenderingServer.create_local_rendering_device()
+	populate_shaderfile = load("res://Scripts/populate_triangles.glsl")
+	populate_shaderfile_spirv = populate_shaderfile.get_spirv()
+	populate_shader = rd.shader_create_from_spirv(populate_shaderfile_spirv)
+	
+	#initializing storage buffers
+	# VerticesBuffer
+	var grid_pos_bytes: PackedByteArray = grid_pos.to_byte_array()
+	var vertices_buffer := rd.storage_buffer_create(grid_pos_bytes.size(), grid_pos_bytes)
+	var uniform_vertices := RDUniform.new()
+	uniform_vertices.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+	uniform_vertices.binding = 0
+	uniform_vertices.add_id(vertices_buffer)
+	
+	# NormalsBuffer
+	var grid_norm_bytes: PackedByteArray = grid_norm.to_byte_array()
+	var normals_buffer := rd.storage_buffer_create(grid_norm_bytes.size(), grid_norm_bytes)
+	var uniform_normals := RDUniform.new()
+	uniform_normals.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+	uniform_normals.binding = 1
+	uniform_normals.add_id(normals_buffer)
+	
+	# ValuesBuffer
+	var grid_val_bytes: PackedByteArray = grid_val.to_byte_array()
+	var values_buffer := rd.storage_buffer_create(grid_val_bytes.size(), grid_val_bytes)
+	var uniform_values := RDUniform.new()
+	uniform_values.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+	uniform_values.binding = 2
+	uniform_values.add_id(values_buffer)
+	
+	# BorderElementsBuffer
+	var border_indices_bytes: PackedByteArray = border_indices.to_byte_array()
+	var border_indices_buffer := rd.storage_buffer_create(border_indices_bytes.size(), border_indices_bytes)
+	var uniform_border_indices := RDUniform.new()
+	uniform_border_indices.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+	uniform_border_indices.binding = 3
+	uniform_border_indices.add_id(border_indices_buffer)
+	
+	# TriangleVertexBuffer
+	var tri_pos_bytes: PackedByteArray = tri_pos.to_byte_array()
+	var tri_pos_buffer := rd.storage_buffer_create(tri_pos_bytes.size(), tri_pos_bytes)
+	var uniform_tri_pos := RDUniform.new()
+	uniform_tri_pos.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+	uniform_tri_pos.binding = 4
+	uniform_tri_pos.add_id(tri_pos_buffer)
+	
+	# TriangleNormalBuffer
+	var tri_norm_bytes: PackedByteArray = tri_norm.to_byte_array()
+	var tri_norm_buffer := rd.storage_buffer_create(tri_norm_bytes.size(), tri_norm_bytes)
+	var uniform_tri_norm := RDUniform.new()
+	uniform_tri_norm.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+	uniform_tri_norm.binding = 5
+	uniform_tri_norm.add_id(tri_norm_buffer)
+	
+	compute_list = rd.compute_list_begin()
+	
+	var uniform_populate_set := rd.uniform_set_create([uniform_vertices, uniform_normals, uniform_values, uniform_border_indices, uniform_tri_pos, uniform_tri_norm], populate_shader, 0)
+	var populate_pipeline := rd.compute_pipeline_create(populate_shader)
+	rd.compute_list_bind_compute_pipeline(compute_list, populate_pipeline)
+	rd.compute_list_bind_uniform_set(compute_list, uniform_populate_set, 0)
+	
+	#var params: PackedByteArray = PackedInt32Array([grid_size.x, border_indices.size(), int(isolevel), 0]).to_byte_array()
+	#rd.compute_list_set_push_constant(compute_list, params, params.size())
+	
+	rd.compute_list_dispatch(compute_list, ceil(total_point_count / 64.0), 1, 1)
+	
+	rd.compute_list_end()
+	
+	rd.submit()
+	rd.sync()
+	
+	#var tri_display_bytes := rd.buffer_get_data(tri_pos_buffer)
+	#var tri_display := tri_display_bytes.to_float32_array()
+	#
+	#print("Triangles: ", tri_display)
+	
+
 func main_march() -> void:
 	tri_pos.clear()
 	tri_norm.clear()
@@ -131,7 +224,6 @@ func main_march() -> void:
 	
 	for i in range(grid_pos.size()):
 		setup_cells(i, grid_size.x, grid_size.y, grid_size.z)
-	var polygonize: Polygonise = Polygonise.new()
 	var n = polygonize.Polygonize(grid_pos, grid_norm, grid_val, isolevel, grid_size.x, grid_size.y, tri_pos, tri_norm, border_indices)
 	
 	
@@ -143,26 +235,6 @@ func main_march() -> void:
 	surface_array[Mesh.ARRAY_NORMAL] = tri_norm
 	meshInstance.mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surface_array)
 	
-	# Sphere instances for testing
-	#var multi_mesh_instance = MultiMeshInstance3D.new()
-	#var multi_mesh = MultiMesh.new()
-	#
-	#var sphere = SphereMesh.new()
-	#sphere.radius = 0.1
-	#sphere.height = 0.1 * 2
-	#multi_mesh.mesh = sphere
-	#multi_mesh.transform_format = MultiMesh.TRANSFORM_3D
-	#multi_mesh.instance_count = points.size()
-	#
-	#for i in range(multi_mesh.instance_count):
-		#var transform = Transform3D()
-		#transform.origin = points[i]
-		#multi_mesh.set_instance_transform(i, transform)
-	#
-	#multi_mesh_instance.multimesh = multi_mesh
-	#add_child(multi_mesh_instance)
-	
-	
 	print("Points: ", grid_pos.size())
 	print("Number of Triangles: ", n)
 	print("Number of Vertices: ", tri_pos.size())
@@ -170,11 +242,14 @@ func main_march() -> void:
 	print("Number of Normals: ", tri_norm.size())
 
 func _ready() -> void:
+	polygonize = Polygonise.new()
 	construct_grid()
-	main_march()
+	setup_compute()
+	print("Works")
+	#main_march()
 
-func _on_h_slider_value_changed(value: float) -> void:
-	sphere_radius = value
-	torus_radius = value
-	noise_randomness = value * 10
-	main_march()
+#func _on_h_slider_value_changed(value: float) -> void:
+	#sphere_radius = value
+	#torus_radius = value
+	#noise_randomness = value * 10
+	#main_march()

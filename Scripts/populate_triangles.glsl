@@ -1,6 +1,9 @@
 #[compute]
 #version 450
 
+// Invocations
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
 const int edgeTable[256] = int[](
 	0x0, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
 	0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
@@ -294,51 +297,54 @@ const int triTable[256][16] = int[][](
 	int[](-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
 );
 
-layout(set = 0, binding = 0, std430) restrict buffer VerticesBuffer{
+layout(set = 0, binding = 0, std430) restrict readonly buffer VerticesBuffer{
 	vec3 pos[];
 }
 vertices_buffer;
 
-layout(set = 0, binding = 1, std430) restrict buffer BorderElementsBuffe{
-	uint indices[];
-}
-border_elements_buffer;
-
-layout(set = 0, binding = 2, std430) restrict buffer TrianglesBuffer{
-	vec3 points[];
-}
-triangles_buffer;
-
-layout(set = 0, binding = 3, std430) restrict buffer ValuesBuffer{
-	float values[];
-}
-values_buffer;
-
-layout(set = 0, binding = 4, std430) restrict buffer NormalsBuffer{
+layout(set = 0, binding = 1, std430) restrict readonly buffer NormalsBuffer{
 	vec3 normals[];
 }
 normals_buffer;
 
-layout(push_constant) uniform Params {
+layout(set = 0, binding = 2, std430) restrict readonly buffer ValuesBuffer{
+	float values[];
+}
+values_buffer;
+
+layout(set = 0, binding = 3, std430) restrict readonly buffer BorderElementsBuffer{
+	uint indices[];
+}
+border_elements_buffer;
+
+layout(set = 0, binding = 4, std430) restrict buffer TrianglesVertexBuffer{
+	vec3 points[];
+}
+triangles_vertex_buffer;
+
+layout(set = 0, binding = 5, std430) restrict buffer TrianglesNormalBuffer{
+	vec3 normals[];
+}
+triangles_normal_buffer;
+
+/*layout(push_constant) uniform Params {
 	uint size;
 	uint border_size;
-	float isolevel;
+	uint isolevel;
 }
-params;
+params;*/
 
-vec3 VertexInterp(float isolevel, vec3 p1, vec3 p2, float v1, float v2){
+vec3 vertex_interp(float isolevel, vec3 p1, vec3 p2, float v1, float v2){
 	float mu = (isolevel - v1) / (v2 - v1);
 	return p1 + mu * (p2 - p1);
 }
 
-// Invocations
-layout(local_size_x = 10, local_size_y = 1, local_size_z = 1) in;
-
 void main()
 {
-	const uint size = params.size;
-	const uint total_size = size * size * size;
-	const float isolevel = params.isolevel;
+	const uint size = 10;
+	const uint total_size = 1000;
+	const float isolevel = 0.0;
+	const uint border_size = 90;
 
 	vec3 vertlist[12];
 	vec3 normlist[12];
@@ -349,11 +355,11 @@ void main()
 		return;
 	}
 
-	if ((idx + 1) % params.size == 0){
+	if ((idx + 1) % size == 0){
 		return;
 	}	
-	for (uint i; i < params.border_size; i++){
-		if (idx == i){
+	for (uint i = 0; i < border_size; i++){
+		if (idx == border_elements_buffer.indices[i]){
 			return;
 		}
 	}
@@ -382,79 +388,79 @@ void main()
 	
 	// Determine the index into the edge table
 	uint cubeindex = 0;
-	cubeindex |= int(values_buffer.values[i0] <= isolevel) << 0;
-	cubeindex |= int(values_buffer.values[i1] <= isolevel) << 1;
-	cubeindex |= int(values_buffer.values[i2] <= isolevel) << 2;
-	cubeindex |= int(values_buffer.values[i3] <= isolevel) << 3;
-	cubeindex |= int(values_buffer.values[i4] <= isolevel) << 4;
-	cubeindex |= int(values_buffer.values[i5] <= isolevel) << 5;
-	cubeindex |= int(values_buffer.values[i6] <= isolevel) << 6;
-	cubeindex |= int(values_buffer.values[i7] <= isolevel) << 7;
+	cubeindex |= int(values_buffer.values[i0] < isolevel) << 0;
+	cubeindex |= int(values_buffer.values[i1] < isolevel) << 1;
+	cubeindex |= int(values_buffer.values[i2] < isolevel) << 2;
+	cubeindex |= int(values_buffer.values[i3] < isolevel) << 3;
+	cubeindex |= int(values_buffer.values[i4] < isolevel) << 4;
+	cubeindex |= int(values_buffer.values[i5] < isolevel) << 5;
+	cubeindex |= int(values_buffer.values[i6] < isolevel) << 6;
+	cubeindex |= int(values_buffer.values[i7] < isolevel) << 7;
 
 	if (edgeTable[cubeindex] == 0){
 		return;
 	}
 
 	if (bool(edgeTable[cubeindex] & 1)){
-		vertlist[0] = VertexInterp(isolevel, triangles_buffer.points[i0], triangles_buffer.points[i1], values_buffer.values[i0], values_buffer.values[i1]);
-		normlist[0] = VertexInterp(isolevel, normals_buffer.normals[i0], normals_buffer.normals[i1], values_buffer.values[i0], values_buffer.values[i1]);
+		vertlist[0] = vertex_interp(isolevel, vertices_buffer.pos[i0], vertices_buffer.pos[i1], values_buffer.values[i0], values_buffer.values[i1]);
+		normlist[0] = vertex_interp(isolevel, normals_buffer.normals[i0], normals_buffer.normals[i1], values_buffer.values[i0], values_buffer.values[i1]);
 	}
 	if (bool(edgeTable[cubeindex] & 2)){
-		vertlist[1] = VertexInterp(isolevel, triangles_buffer.points[i1], triangles_buffer.points[i2], values_buffer.values[i1], values_buffer.values[i2]);
-		normlist[1] = VertexInterp(isolevel, normals_buffer.normals[i1], normals_buffer.normals[i2], values_buffer.values[i1], values_buffer.values[i2]);
+		vertlist[1] = vertex_interp(isolevel, vertices_buffer.pos[i1], vertices_buffer.pos[i2], values_buffer.values[i1], values_buffer.values[i2]);
+		normlist[1] = vertex_interp(isolevel, normals_buffer.normals[i1], normals_buffer.normals[i2], values_buffer.values[i1], values_buffer.values[i2]);
 	}		
 	if (bool(edgeTable[cubeindex] & 4)){
-		vertlist[2] = VertexInterp(isolevel, triangles_buffer.points[i2], triangles_buffer.points[i3], values_buffer.values[i2], values_buffer.values[i3]);
-		normlist[2] = VertexInterp(isolevel, normals_buffer.normals[i2], normals_buffer.normals[i3], values_buffer.values[i2], values_buffer.values[i3]);
+		vertlist[2] = vertex_interp(isolevel, vertices_buffer.pos[i2], vertices_buffer.pos[i3], values_buffer.values[i2], values_buffer.values[i3]);
+		normlist[2] = vertex_interp(isolevel, normals_buffer.normals[i2], normals_buffer.normals[i3], values_buffer.values[i2], values_buffer.values[i3]);
 	}
 	if (bool(edgeTable[cubeindex] & 8)){
-		vertlist[3] = VertexInterp(isolevel, triangles_buffer.points[i3], triangles_buffer.points[i0], values_buffer.values[i3], values_buffer.values[i0]);
-		normlist[3] = VertexInterp(isolevel, normals_buffer.normals[i3], normals_buffer.normals[i0], values_buffer.values[i3], values_buffer.values[i0]);
+		vertlist[3] = vertex_interp(isolevel, vertices_buffer.pos[i3], vertices_buffer.pos[i0], values_buffer.values[i3], values_buffer.values[i0]);
+		normlist[3] = vertex_interp(isolevel, normals_buffer.normals[i3], normals_buffer.normals[i0], values_buffer.values[i3], values_buffer.values[i0]);
 	}	
 	if (bool(edgeTable[cubeindex] & 16)){
-		vertlist[4] = VertexInterp(isolevel, triangles_buffer.points[i4], triangles_buffer.points[i5], values_buffer.values[i4], values_buffer.values[i5]);
-		normlist[4] = VertexInterp(isolevel, normals_buffer.normals[i4], normals_buffer.normals[i5], values_buffer.values[i4], values_buffer.values[i5]);
+		vertlist[4] = vertex_interp(isolevel, vertices_buffer.pos[i4], vertices_buffer.pos[i5], values_buffer.values[i4], values_buffer.values[i5]);
+		normlist[4] = vertex_interp(isolevel, normals_buffer.normals[i4], normals_buffer.normals[i5], values_buffer.values[i4], values_buffer.values[i5]);
 	}
 	if (bool(edgeTable[cubeindex] & 32)){
-		vertlist[5] = VertexInterp(isolevel, triangles_buffer.points[i5], triangles_buffer.points[i6], values_buffer.values[i5], values_buffer.values[i6]);
-		normlist[5] = VertexInterp(isolevel, normals_buffer.normals[i5], normals_buffer.normals[i6], values_buffer.values[i5], values_buffer.values[i6]);
+		vertlist[5] = vertex_interp(isolevel, vertices_buffer.pos[i5], vertices_buffer.pos[i6], values_buffer.values[i5], values_buffer.values[i6]);
+		normlist[5] = vertex_interp(isolevel, normals_buffer.normals[i5], normals_buffer.normals[i6], values_buffer.values[i5], values_buffer.values[i6]);
 	}
 	if (bool(edgeTable[cubeindex] & 64)){
-		vertlist[6] = VertexInterp(isolevel, triangles_buffer.points[i6], triangles_buffer.points[i7], values_buffer.values[i6], values_buffer.values[i7]);
-		normlist[6] = VertexInterp(isolevel, normals_buffer.normals[i6], normals_buffer.normals[i7], values_buffer.values[i6], values_buffer.values[i7]);
+		vertlist[6] = vertex_interp(isolevel, vertices_buffer.pos[i6], vertices_buffer.pos[i7], values_buffer.values[i6], values_buffer.values[i7]);
+		normlist[6] = vertex_interp(isolevel, normals_buffer.normals[i6], normals_buffer.normals[i7], values_buffer.values[i6], values_buffer.values[i7]);
 	}
 	if (bool(edgeTable[cubeindex] & 128)){
-		vertlist[7] = VertexInterp(isolevel, triangles_buffer.points[i7], triangles_buffer.points[i4], values_buffer.values[i7], values_buffer.values[i4]);
-		normlist[7] = VertexInterp(isolevel, normals_buffer.normals[i7], normals_buffer.normals[i4], values_buffer.values[i7], values_buffer.values[i4]);
+		vertlist[7] = vertex_interp(isolevel, vertices_buffer.pos[i7], vertices_buffer.pos[i4], values_buffer.values[i7], values_buffer.values[i4]);
+		normlist[7] = vertex_interp(isolevel, normals_buffer.normals[i7], normals_buffer.normals[i4], values_buffer.values[i7], values_buffer.values[i4]);
 	}
 	if (bool(edgeTable[cubeindex] & 256)){
-		vertlist[8] = VertexInterp(isolevel, triangles_buffer.points[i0], triangles_buffer.points[i4], values_buffer.values[i0], values_buffer.values[i4]);
-		normlist[8] = VertexInterp(isolevel, normals_buffer.normals[i0], normals_buffer.normals[i4], values_buffer.values[i0], values_buffer.values[i4]);
+		vertlist[8] = vertex_interp(isolevel, vertices_buffer.pos[i0], vertices_buffer.pos[i4], values_buffer.values[i0], values_buffer.values[i4]);
+		normlist[8] = vertex_interp(isolevel, normals_buffer.normals[i0], normals_buffer.normals[i4], values_buffer.values[i0], values_buffer.values[i4]);
 	}
 	if (bool(edgeTable[cubeindex] & 512)){
-		vertlist[9] = VertexInterp(isolevel, triangles_buffer.points[i1], triangles_buffer.points[i5], values_buffer.values[i1], values_buffer.values[i5]);
-		normlist[9] = VertexInterp(isolevel, normals_buffer.normals[i1], normals_buffer.normals[i5], values_buffer.values[i1], values_buffer.values[i5]);
+		vertlist[9] = vertex_interp(isolevel, vertices_buffer.pos[i1], vertices_buffer.pos[i5], values_buffer.values[i1], values_buffer.values[i5]);
+		normlist[9] = vertex_interp(isolevel, normals_buffer.normals[i1], normals_buffer.normals[i5], values_buffer.values[i1], values_buffer.values[i5]);
 	}
 	if (bool(edgeTable[cubeindex] & 1024)){
-		vertlist[10] = VertexInterp(isolevel, triangles_buffer.points[i2], triangles_buffer.points[i6], values_buffer.values[i2], values_buffer.values[i6]);
-		normlist[10] = VertexInterp(isolevel, normals_buffer.normals[i2], normals_buffer.normals[i6], values_buffer.values[i2], values_buffer.values[i6]);
+		vertlist[10] = vertex_interp(isolevel, vertices_buffer.pos[i2], vertices_buffer.pos[i6], values_buffer.values[i2], values_buffer.values[i6]);
+		normlist[10] = vertex_interp(isolevel, normals_buffer.normals[i2], normals_buffer.normals[i6], values_buffer.values[i2], values_buffer.values[i6]);
 	}
 	if (bool(edgeTable[cubeindex] & 2048)){
-		vertlist[11] = VertexInterp(isolevel, triangles_buffer.points[i3], triangles_buffer.points[i7], values_buffer.values[i3], values_buffer.values[i7]);
-		normlist[11] = VertexInterp(isolevel, normals_buffer.normals[i3], normals_buffer.normals[i7], values_buffer.values[i3], values_buffer.values[i7]);
+		vertlist[11] = vertex_interp(isolevel, vertices_buffer.pos[i3], vertices_buffer.pos[i7], values_buffer.values[i3], values_buffer.values[i7]);
+		normlist[11] = vertex_interp(isolevel, normals_buffer.normals[i3], normals_buffer.normals[i7], values_buffer.values[i3], values_buffer.values[i7]);
 	}
 
-	uint i = 0;
-	uint tri_i = idx;
+	/*uint i = 0;
+	uint tri_i = idx * 15;
 	while (triTable[cubeindex][i] != 1){
-		triangles_buffer.points[tri_i] = vertlist[triTable[cubeindex][i]];
-		triangles_buffer.points[tri_i+1] = vertlist[triTable[cubeindex][i+1]];
-		triangles_buffer.points[tri_i+2] = vertlist[triTable[cubeindex][i+2]];
-		normals_buffer.normals[tri_i] = normlist[triTable[cubeindex][i]];
-		normals_buffer.normals[tri_i+1] = normlist[triTable[cubeindex][i+1]];
-		normals_buffer.normals[tri_i+2] = normlist[triTable[cubeindex][i+2]];
+		triangles_vertex_buffer.points[tri_i] = vertlist[triTable[cubeindex][i]];
+		triangles_vertex_buffer.points[tri_i+1] = vertlist[triTable[cubeindex][i+1]];
+		triangles_vertex_buffer.points[tri_i+2] = vertlist[triTable[cubeindex][i+2]];
+		triangles_normal_buffer.normals[tri_i] = normlist[triTable[cubeindex][i]];
+		triangles_normal_buffer.normals[tri_i+1] = normlist[triTable[cubeindex][i+1]];
+		triangles_normal_buffer.normals[tri_i+2] = normlist[triTable[cubeindex][i+2]];
 
 		i += 3;
 		tri_i += 3;
-	}
+	}*/
 }
