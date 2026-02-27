@@ -8,6 +8,10 @@ func VertexInterp(isolevel: float, p1: Vector3, p2: Vector3, valp1: float, valp2
 	var mu: float = (isolevel - valp1) / (valp2 - valp1)
 	return p1 + mu * (p2 - p1)
 
+func NormalInterp(isolevel: float, n1: Vector3, n2: Vector3, valn1: float, valn2: float) -> Vector3:
+	var mu = (isolevel - valn1) / (valn2 - valn1)
+	return (n1 + mu * (n2 - n1)).normalized()
+
 # polygonize function should work on all the array instead of processing a single gridcell at a time
 # it should take in p, val, and norm separately
 func Polygonize(gc_pos: PackedVector3Array, gc_norm: PackedVector3Array, gc_val: PackedFloat32Array, isolevel: float, sx: int, sy:int, tri_pos: PackedVector3Array, tri_norm: PackedVector3Array, border_indices: PackedInt32Array) -> int:
@@ -49,14 +53,14 @@ func Polygonize(gc_pos: PackedVector3Array, gc_norm: PackedVector3Array, gc_val:
 		#Determine the index into the edge table
 		var cubeindex: int = 0
 		
-		cubeindex |= int(gc_val[i0] <= isolevel) << 0
-		cubeindex |= int(gc_val[i1] <= isolevel) << 1
-		cubeindex |= int(gc_val[i2] <= isolevel) << 2
-		cubeindex |= int(gc_val[i3] <= isolevel) << 3
-		cubeindex |= int(gc_val[i4] <= isolevel) << 4
-		cubeindex |= int(gc_val[i5] <= isolevel) << 5
-		cubeindex |= int(gc_val[i6] <= isolevel) << 6
-		cubeindex |= int(gc_val[i7] <= isolevel) << 7
+		cubeindex |= int(gc_val[i0] < isolevel) << 0
+		cubeindex |= int(gc_val[i1] < isolevel) << 1
+		cubeindex |= int(gc_val[i2] < isolevel) << 2
+		cubeindex |= int(gc_val[i3] < isolevel) << 3
+		cubeindex |= int(gc_val[i4] < isolevel) << 4
+		cubeindex |= int(gc_val[i5] < isolevel) << 5
+		cubeindex |= int(gc_val[i6] < isolevel) << 6
+		cubeindex |= int(gc_val[i7] < isolevel) << 7
 	
 		# Cube is entirely in/out of the surface
 		if edgeTable.get_int(cubeindex) == 0:
@@ -65,40 +69,40 @@ func Polygonize(gc_pos: PackedVector3Array, gc_norm: PackedVector3Array, gc_val:
 		# Find the vertices where the surface intersects the cube
 		if edgeTable.get_int(cubeindex) & 1:
 			vertlist[0] = VertexInterp(isolevel, gc_pos[i0], gc_pos[i1], gc_val[i0], gc_val[i1])
-			normlist[0] = VertexInterp(isolevel, gc_norm[i0], gc_norm[i1], gc_val[i0], gc_val[i1])
+			normlist[0] = NormalInterp(isolevel, gc_norm[i0], gc_norm[i1], gc_val[i0], gc_val[i1])
 		if edgeTable.get_int(cubeindex) & 2:
 			vertlist[1] = VertexInterp(isolevel, gc_pos[i1], gc_pos[i2], gc_val[i1], gc_val[i2])
-			normlist[1] = VertexInterp(isolevel, gc_norm[i1], gc_norm[i2], gc_val[i1], gc_val[i2])
+			normlist[1] = NormalInterp(isolevel, gc_norm[i1], gc_norm[i2], gc_val[i1], gc_val[i2])
 		if edgeTable.get_int(cubeindex) & 4:
 			vertlist[2] = VertexInterp(isolevel, gc_pos[i2], gc_pos[i3], gc_val[i2], gc_val[i3])
-			normlist[2] = VertexInterp(isolevel, gc_norm[i2], gc_norm[i3], gc_val[i2], gc_val[i3])
+			normlist[2] = NormalInterp(isolevel, gc_norm[i2], gc_norm[i3], gc_val[i2], gc_val[i3])
 		if edgeTable.get_int(cubeindex) & 8:
 			vertlist[3] = VertexInterp(isolevel, gc_pos[i3], gc_pos[i0], gc_val[i3], gc_val[i0])
-			normlist[3] = VertexInterp(isolevel, gc_norm[i3], gc_norm[i0], gc_val[i3], gc_val[i0])
+			normlist[3] = NormalInterp(isolevel, gc_norm[i3], gc_norm[i0], gc_val[i3], gc_val[i0])
 		if edgeTable.get_int(cubeindex) & 16:
 			vertlist[4] = VertexInterp(isolevel, gc_pos[i4], gc_pos[i5], gc_val[i4], gc_val[i5])
-			normlist[4] = VertexInterp(isolevel, gc_norm[i4], gc_norm[i5], gc_val[i4], gc_val[i5])
+			normlist[4] = NormalInterp(isolevel, gc_norm[i4], gc_norm[i5], gc_val[i4], gc_val[i5])
 		if edgeTable.get_int(cubeindex) & 32:
 			vertlist[5] = VertexInterp(isolevel, gc_pos[i5], gc_pos[i6], gc_val[i5], gc_val[i6])
-			normlist[5] = VertexInterp(isolevel, gc_norm[i5], gc_norm[i6], gc_val[i5], gc_val[i6])
+			normlist[5] = NormalInterp(isolevel, gc_norm[i5], gc_norm[i6], gc_val[i5], gc_val[i6])
 		if edgeTable.get_int(cubeindex) & 64:
 			vertlist[6] = VertexInterp(isolevel, gc_pos[i6], gc_pos[i7], gc_val[i6], gc_val[i7])
-			normlist[6] = VertexInterp(isolevel, gc_norm[i6], gc_norm[i7], gc_val[i6], gc_val[i7])
+			normlist[6] = NormalInterp(isolevel, gc_norm[i6], gc_norm[i7], gc_val[i6], gc_val[i7])
 		if edgeTable.get_int(cubeindex) & 128:
 			vertlist[7] = VertexInterp(isolevel, gc_pos[i7], gc_pos[i4], gc_val[i7], gc_val[i4])
-			normlist[7] = VertexInterp(isolevel, gc_norm[i7], gc_norm[i4], gc_val[i7], gc_val[i4])
+			normlist[7] = NormalInterp(isolevel, gc_norm[i7], gc_norm[i4], gc_val[i7], gc_val[i4])
 		if edgeTable.get_int(cubeindex) & 256:
 			vertlist[8] = VertexInterp(isolevel, gc_pos[i0], gc_pos[i4], gc_val[i0], gc_val[i4])
-			normlist[8] = VertexInterp(isolevel, gc_norm[i0], gc_norm[i4], gc_val[i0], gc_val[i4])
+			normlist[8] = NormalInterp(isolevel, gc_norm[i0], gc_norm[i4], gc_val[i0], gc_val[i4])
 		if edgeTable.get_int(cubeindex) & 512:
 			vertlist[9] = VertexInterp(isolevel, gc_pos[i1], gc_pos[i5], gc_val[i1], gc_val[i5])
-			normlist[9] = VertexInterp(isolevel, gc_norm[i1], gc_norm[i5], gc_val[i1], gc_val[i5])
+			normlist[9] = NormalInterp(isolevel, gc_norm[i1], gc_norm[i5], gc_val[i1], gc_val[i5])
 		if edgeTable.get_int(cubeindex) & 1024:
 			vertlist[10] = VertexInterp(isolevel, gc_pos[i2], gc_pos[i6], gc_val[i2], gc_val[i6])
-			normlist[10] = VertexInterp(isolevel, gc_norm[i2], gc_norm[i6], gc_val[i2], gc_val[i6])
+			normlist[10] = NormalInterp(isolevel, gc_norm[i2], gc_norm[i6], gc_val[i2], gc_val[i6])
 		if edgeTable.get_int(cubeindex) & 2048:
 			vertlist[11] = VertexInterp(isolevel, gc_pos[i3], gc_pos[i7], gc_val[i3], gc_val[i7])
-			normlist[11] = VertexInterp(isolevel, gc_norm[i3], gc_norm[i7], gc_val[i3], gc_val[i7])
+			normlist[11] = NormalInterp(isolevel, gc_norm[i3], gc_norm[i7], gc_val[i3], gc_val[i7])
 	
 		# Create the traingles
 		i = 0

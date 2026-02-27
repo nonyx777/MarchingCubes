@@ -93,10 +93,10 @@ func setup_cells(i: int, sx: int, sy: int, sz: int) -> void:
 	# Computer normal using central difference
 	for idx in [i0, i1, i2, i3, i4, i5, i6, i7]:
 		var pos: Vector3 = grid_pos[idx]
-		var n_x = noise_density(Vector3(pos.x + 1, pos.y, pos.z) - Vector3(pos.x-1, pos.y, pos.z), noise_randomness) / sx
-		var n_y = noise_density(Vector3(pos.x, pos.y + 1, pos.z) - Vector3(pos.x, pos.y-1, pos.z), noise_randomness) / sy
-		var n_z = noise_density(Vector3(pos.x, pos.y, pos.z + 1) - Vector3(pos.x, pos.y, pos.z - 1), noise_randomness) / sz
-		grid_norm[idx] = Vector3(n_x, n_y, n_z)
+		var n_x = (noise_density(Vector3(pos.x + 1, pos.y, pos.z), noise_randomness) - noise_density(Vector3(pos.x-1, pos.y, pos.z), noise_randomness)) / 2 * sx
+		var n_y = (noise_density(Vector3(pos.x, pos.y + 1, pos.z), noise_randomness) - noise_density(Vector3(pos.x, pos.y-1, pos.z), noise_randomness)) / 2 * sy
+		var n_z = (noise_density(Vector3(pos.x, pos.y, pos.z + 1), noise_randomness) - noise_density(Vector3(pos.x, pos.y, pos.z - 1), noise_randomness)) / 2 * sz
+		grid_norm[idx] = Vector3(n_x, n_y, n_z).normalized()
 
 func construct_grid() -> void:
 	generate_points(grid_size.x, grid_size.y, grid_size.z, spacing)
