@@ -4,22 +4,22 @@ var lookup = Lookup.new()
 var edgeTable = lookup.edgeTables
 var triTable = lookup.triTable
 
-func VertexInterp(isolevel: float, p1: Vector3, p2: Vector3, valp1: float, valp2: float) -> Vector3:
+func VertexInterp(isolevel: float, p1: Vector4, p2: Vector4, valp1: float, valp2: float) -> Vector4:
 	var mu: float = (isolevel - valp1) / (valp2 - valp1)
 	return p1 + mu * (p2 - p1)
 
-func NormalInterp(isolevel: float, n1: Vector3, n2: Vector3, valn1: float, valn2: float) -> Vector3:
+func NormalInterp(isolevel: float, n1: Vector4, n2: Vector4, valn1: float, valn2: float) -> Vector4:
 	var mu = (isolevel - valn1) / (valn2 - valn1)
 	return (n1 + mu * (n2 - n1)).normalized()
 
 # polygonize function should work on all the array instead of processing a single gridcell at a time
 # it should take in p, val, and norm separately
-func Polygonize(gc_pos: PackedVector3Array, gc_norm: PackedVector3Array, gc_val: PackedFloat32Array, isolevel: float, sx: int, sy:int, tri_pos: PackedVector3Array, tri_norm: PackedVector3Array, border_indices: PackedInt32Array) -> int:
+func Polygonize(gc_pos: PackedVector4Array, gc_norm: PackedVector4Array, gc_val: PackedFloat32Array, isolevel: float, sx: int, sy:int, tri_pos: PackedVector4Array, tri_norm: PackedVector4Array, border_indices: PackedInt32Array) -> int:
 	var i: int
 	var ntriang: int = 0
 	
-	var vertlist: PackedVector3Array
-	var normlist: PackedVector3Array
+	var vertlist: PackedVector4Array
+	var normlist: PackedVector4Array
 	vertlist.resize(12)
 	normlist.resize(12)
 	# after this everything should happen in a forloop

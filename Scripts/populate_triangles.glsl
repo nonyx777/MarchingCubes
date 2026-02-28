@@ -298,12 +298,12 @@ const int triTable[256][16] = int[][](
 );
 
 layout(set = 0, binding = 0, std430) restrict readonly buffer VerticesBuffer{
-	vec3 pos[];
+	vec4 pos[];
 }
 vertices_buffer;
 
 layout(set = 0, binding = 1, std430) restrict readonly buffer NormalsBuffer{
-	vec3 normals[];
+	vec4 normals[];
 }
 normals_buffer;
 
@@ -318,36 +318,38 @@ layout(set = 0, binding = 3, std430) restrict readonly buffer BorderElementsBuff
 border_elements_buffer;
 
 layout(set = 0, binding = 4, std430) restrict buffer TrianglesVertexBuffer{
-	vec3 points[];
+	vec4 points[];
 }
 triangles_vertex_buffer;
 
 layout(set = 0, binding = 5, std430) restrict buffer TrianglesNormalBuffer{
-	vec3 normals[];
+	vec4 normals[];
 }
 triangles_normal_buffer;
 
-/*layout(push_constant) uniform Params {
+layout(push_constant) uniform Params {
 	uint size;
 	uint border_size;
 	uint isolevel;
 }
-params;*/
+params;
 
-vec3 vertex_interp(float isolevel, vec3 p1, vec3 p2, float v1, float v2){
+vec4 vertex_interp(float isolevel, vec4 p1, vec4 p2, float v1, float v2){
 	float mu = (isolevel - v1) / (v2 - v1);
+	vec4 r = p1 + mu * (p2 - p1);
+	r.w = -1;
 	return p1 + mu * (p2 - p1);
 }
 
 void main()
 {
-	const uint size = 10;
-	const uint total_size = 1000;
-	const float isolevel = 0.0;
-	const uint border_size = 90;
+	const uint size = params.size;
+	const uint total_size = size * size * size;
+	const float isolevel = float(params.isolevel);
+	const uint border_size = params.border_size;
 
-	vec3 vertlist[12];
-	vec3 normlist[12];
+	vec4 vertlist[12];
+	vec4 normlist[12];
 
 	uint idx = gl_GlobalInvocationID.x;
 
@@ -450,9 +452,9 @@ void main()
 		normlist[11] = vertex_interp(isolevel, normals_buffer.normals[i3], normals_buffer.normals[i7], values_buffer.values[i3], values_buffer.values[i7]);
 	}
 
-	/*uint i = 0;
+	uint i = 0;
 	uint tri_i = idx * 15;
-	while (triTable[cubeindex][i] != 1){
+	while (triTable[cubeindex][i] != -1){
 		triangles_vertex_buffer.points[tri_i] = vertlist[triTable[cubeindex][i]];
 		triangles_vertex_buffer.points[tri_i+1] = vertlist[triTable[cubeindex][i+1]];
 		triangles_vertex_buffer.points[tri_i+2] = vertlist[triTable[cubeindex][i+2]];
@@ -462,5 +464,5 @@ void main()
 
 		i += 3;
 		tri_i += 3;
-	}*/
+	}
 }

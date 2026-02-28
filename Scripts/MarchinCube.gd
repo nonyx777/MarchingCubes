@@ -15,12 +15,12 @@ var grid_size: Vector3i = Vector3i(10, 10, 10)
 var total_point_count: int
 var spacing: float = 1
 # grid cell related
-var grid_pos: PackedVector3Array
-var grid_norm: PackedVector3Array
+var grid_pos: PackedVector4Array
+var grid_norm: PackedVector4Array
 var grid_val: PackedFloat32Array
 # triangle related
-var tri_pos: PackedVector3Array
-var tri_norm: PackedVector3Array
+var tri_pos: PackedVector4Array
+var tri_norm: PackedVector4Array
 # border element indices
 var border_indices: PackedInt32Array
 
@@ -44,7 +44,7 @@ func torus_sdf(p: Vector3, t: Vector2):
 	var q = Vector2(Vector2(p.x, p.z).length() - t.x, p.y)
 	return q.length() - t.y
 
-func noise_sdf(p: Vector3, r: float):
+func noise_sdf(p: Vector4, r: float):
 	var amplitude = 10
 	
 	var height = noise.get_noise_3d(
@@ -62,7 +62,7 @@ func torus_density(p: Vector3, t: Vector2) -> float:
 	var center = Vector3(5, 5, 5)
 	return torus_sdf(p - center, t)
 
-func noise_density(p: Vector3, r: float) -> float:
+func noise_density(p: Vector4, r: float) -> float:
 	return noise_sdf(p, r)
 
 func generate_points(sx: int, sy: int, sz: int, spacing_: float):
@@ -70,7 +70,7 @@ func generate_points(sx: int, sy: int, sz: int, spacing_: float):
 	for z in range(sz):
 		for y in range(sy):
 			for x in range(sx):
-				grid_pos.append(Vector3(x * spacing_, y * spacing_, z * spacing_))
+				grid_pos.append(Vector4(x * spacing_, y * spacing_, z * spacing_, -1))
 
 func get_point_index(x: int, y: int, z: int, sx: int, sy: int):
 	return z * (sy) * (sx) + y * (sx) + x
@@ -102,11 +102,12 @@ func setup_cells(i: int, sx: int, sy: int, sz: int) -> void:
 	
 	# Computer normal using central difference
 	for idx in [i0, i1, i2, i3, i4, i5, i6, i7]:
-		var pos: Vector3 = grid_pos[idx]
-		var n_x = (noise_density(Vector3(pos.x + 1, pos.y, pos.z), noise_randomness) - noise_density(Vector3(pos.x-1, pos.y, pos.z), noise_randomness)) / 2 * sx
-		var n_y = (noise_density(Vector3(pos.x, pos.y + 1, pos.z), noise_randomness) - noise_density(Vector3(pos.x, pos.y-1, pos.z), noise_randomness)) / 2 * sy
-		var n_z = (noise_density(Vector3(pos.x, pos.y, pos.z + 1), noise_randomness) - noise_density(Vector3(pos.x, pos.y, pos.z - 1), noise_randomness)) / 2 * sz
-		grid_norm[idx] = Vector3(n_x, n_y, n_z).normalized()
+		var pos: Vector4 = grid_pos[idx]
+		var n_x = (noise_density(Vector4(pos.x + 1, pos.y, pos.z, 0.0), noise_randomness) - noise_density(Vector4(pos.x-1, pos.y, pos.z, 0.0), noise_randomness)) / 2 * sx
+		var n_y = (noise_density(Vector4(pos.x, pos.y + 1, pos.z, 0.0), noise_randomness) - noise_density(Vector4(pos.x, pos.y-1, pos.z, 0.0), noise_randomness)) / 2 * sy
+		var n_z = (noise_density(Vector4(pos.x, pos.y, pos.z + 1, 0.0), noise_randomness) - noise_density(Vector4(pos.x, pos.y, pos.z-1, 0.0), noise_randomness)) / 2 * sz
+		var n_w = -1
+		grid_norm[idx] = Vector4(n_x, n_y, n_z, n_w).normalized()
 
 func construct_grid() -> void:
 	total_point_count = grid_size.x * grid_size.y * grid_size.z
@@ -129,9 +130,11 @@ func get_border() -> void:
 			border_indices.append(i + j)
 
 func setup_compute() -> void:
-	var tri_size: int = grid_pos.size() * 20
+	var tri_size: int = grid_pos.size() * 15
 	tri_pos.resize(tri_size)
 	tri_norm.resize(tri_size)
+	tri_pos.fill(Vector4(-1, -1, -1, -1))
+	tri_norm.fill(Vector4(-1, -1, -1, -1))
 	
 	rd = RenderingServer.create_local_rendering_device()
 	populate_shaderfile = load("res://Scripts/populate_triangles.glsl")
@@ -194,8 +197,8 @@ func setup_compute() -> void:
 	rd.compute_list_bind_compute_pipeline(compute_list, populate_pipeline)
 	rd.compute_list_bind_uniform_set(compute_list, uniform_populate_set, 0)
 	
-	#var params: PackedByteArray = PackedInt32Array([grid_size.x, border_indices.size(), int(isolevel), 0]).to_byte_array()
-	#rd.compute_list_set_push_constant(compute_list, params, params.size())
+	var params: PackedByteArray = PackedInt32Array([grid_size.x, border_indices.size(), int(isolevel), 0]).to_byte_array()
+	rd.compute_list_set_push_constant(compute_list, params, params.size())
 	
 	rd.compute_list_dispatch(compute_list, ceil(total_point_count / 64.0), 1, 1)
 	
@@ -204,10 +207,10 @@ func setup_compute() -> void:
 	rd.submit()
 	rd.sync()
 	
-	#var tri_display_bytes := rd.buffer_get_data(tri_pos_buffer)
-	#var tri_display := tri_display_bytes.to_float32_array()
-	#
-	#print("Triangles: ", tri_display)
+	var tri_display_bytes := rd.buffer_get_data(tri_pos_buffer)
+	var tri_display := tri_display_bytes.to_float32_array()
+	
+	print("Triangles: ", tri_display)
 	
 
 func main_march() -> void:
