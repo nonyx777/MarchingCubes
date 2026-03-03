@@ -297,6 +297,8 @@ const int triTable[256][16] = int[][](
 	int[](-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
 );
 
+const vec4 EPSILON = vec4(1e-4);
+
 layout(set = 0, binding = 0, std430) restrict readonly buffer VerticesBuffer{
 	vec4 pos[];
 }
@@ -337,6 +339,7 @@ params;
 vec4 vertex_interp(float isolevel, vec4 p1, vec4 p2, float v1, float v2){
 	float mu = (isolevel - v1) / (v2 - v1);
 	vec4 r = p1 + mu * (p2 - p1);
+	r += EPSILON;
 	r.w = -1;
 	return r;
 }

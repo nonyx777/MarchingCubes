@@ -21,6 +21,7 @@ var grid_val: PackedFloat32Array
 # triangle related
 var tri_pos: PackedVector4Array
 var tri_norm: PackedVector4Array
+var tri_mask: PackedInt32Array
 # border element indices
 var border_indices: PackedInt32Array
 
@@ -34,6 +35,9 @@ var compute_list: int
 var populate_shaderfile: Resource
 var populate_shaderfile_spirv: RDShaderSPIRV
 var populate_shader
+var mask_shaderfile: Resource
+var mask_shaderfile_spirv: RDShaderSPIRV
+var mask_shader
 
 @onready var meshInstance: MeshInstance3D = $MeshInstance3D
 
@@ -133,13 +137,22 @@ func setup_compute() -> void:
 	var tri_size: int = grid_pos.size() * 15
 	tri_pos.resize(tri_size)
 	tri_norm.resize(tri_size)
+	tri_mask.resize(tri_size)
 	tri_pos.fill(Vector4(-1, -1, -1, -1))
 	tri_norm.fill(Vector4(-1, -1, -1, -1))
+	tri_mask.fill(0)
 	
 	rd = RenderingServer.create_local_rendering_device()
+	
+	# Shaders
 	populate_shaderfile = load("res://Scripts/populate_triangles.glsl")
 	populate_shaderfile_spirv = populate_shaderfile.get_spirv()
 	populate_shader = rd.shader_create_from_spirv(populate_shaderfile_spirv)
+	
+	mask_shaderfile = load("res://Scripts/mask_triangles.glsl")
+	mask_shaderfile_spirv = mask_shaderfile.get_spirv()
+	mask_shader = rd.shader_create_from_spirv(mask_shaderfile_spirv)
+	
 	
 	#initializing storage buffers
 	# VerticesBuffer
@@ -190,28 +203,50 @@ func setup_compute() -> void:
 	uniform_tri_norm.binding = 5
 	uniform_tri_norm.add_id(tri_norm_buffer)
 	
+	# TriangleMaskBuffer
+	var tri_mask_bytes: PackedByteArray = tri_mask.to_byte_array()
+	var tri_mask_buffer := rd.storage_buffer_create(tri_mask_bytes.size(), tri_mask_bytes)
+	var uniform_tri_mask := RDUniform.new()
+	uniform_tri_mask.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+	uniform_tri_mask.binding = 6
+	uniform_tri_mask.add_id(tri_mask_buffer)
+	
 	compute_list = rd.compute_list_begin()
+	
+	# Populate Shader....................................................................................
 	
 	var uniform_populate_set := rd.uniform_set_create([uniform_vertices, uniform_normals, uniform_values, uniform_border_indices, uniform_tri_pos, uniform_tri_norm], populate_shader, 0)
 	var populate_pipeline := rd.compute_pipeline_create(populate_shader)
 	rd.compute_list_bind_compute_pipeline(compute_list, populate_pipeline)
 	rd.compute_list_bind_uniform_set(compute_list, uniform_populate_set, 0)
 	
-	var params: PackedByteArray = PackedInt32Array([grid_size.x, border_indices.size(), int(isolevel), 0]).to_byte_array()
-	rd.compute_list_set_push_constant(compute_list, params, params.size())
-	
+	var populate_params: PackedByteArray = PackedInt32Array([grid_size.x, border_indices.size(), int(isolevel), 0]).to_byte_array()
+	rd.compute_list_set_push_constant(compute_list, populate_params, populate_params.size())
 	rd.compute_list_dispatch(compute_list, ceil(total_point_count / 64.0), 1, 1)
 	
-	rd.compute_list_end()
+	rd.compute_list_add_barrier(compute_list)
 	
+	# Mask Shader......................................................................................
+	var uniform_mask_set := rd.uniform_set_create([uniform_tri_pos, uniform_tri_mask], mask_shader, 0)
+	var mask_pipeline := rd.compute_pipeline_create(mask_shader)
+	rd.compute_list_bind_compute_pipeline(compute_list, mask_pipeline)
+	rd.compute_list_bind_uniform_set(compute_list, uniform_mask_set, 0)
+	
+	var mask_params: PackedByteArray = PackedInt32Array([tri_size, 0, 0, 0]).to_byte_array()
+	rd.compute_list_set_push_constant(compute_list, mask_params, mask_params.size())
+	rd.compute_list_dispatch(compute_list, ceil(tri_size / 64.0), 1, 1)
+	
+	rd.compute_list_end()
 	rd.submit()
 	rd.sync()
 	
-	var tri_display_bytes := rd.buffer_get_data(tri_pos_buffer)
-	var tri_display := tri_display_bytes.to_float32_array()
+	#var tri_display_bytes := rd.buffer_get_data(tri_pos_buffer)
+	#var tri_display := tri_display_bytes.to_float32_array()
+	#print("Triangles: ", tri_display)
 	
-	print("Triangles: ", tri_display)
-	
+	var mask_display_bytes := rd.buffer_get_data(tri_mask_buffer)
+	var mask_display := mask_display_bytes.to_int32_array()
+	print("Mask: ", mask_display)
 
 func main_march() -> void:
 	tri_pos.clear()

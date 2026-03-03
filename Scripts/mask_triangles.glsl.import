@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://dsbojjasokc2l"
+path="res://.godot/imported/mask_triangles.glsl-7cc8e6a6ac4a643345825797ca86389c.res"
+
+[deps]
+
+source_file="res://Scripts/mask_triangles.glsl"
+dest_files=["res://.godot/imported/mask_triangles.glsl-7cc8e6a6ac4a643345825797ca86389c.res"]
+
+[params]
+
