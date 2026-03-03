@@ -338,7 +338,14 @@ vec4 vertex_interp(float isolevel, vec4 p1, vec4 p2, float v1, float v2){
 	float mu = (isolevel - v1) / (v2 - v1);
 	vec4 r = p1 + mu * (p2 - p1);
 	r.w = -1;
-	return p1 + mu * (p2 - p1);
+	return r;
+}
+
+vec4 normal_interp(float isolevel, vec4 n1, vec4 n2, float v1, float v2){
+	float mu = (isolevel - v1) / (v2 - v1);
+	vec4 r = normalize(n1 + mu * (n2 - n1));
+	r.w = -1;
+	return r;
 }
 
 void main()
@@ -405,51 +412,51 @@ void main()
 
 	if (bool(edgeTable[cubeindex] & 1)){
 		vertlist[0] = vertex_interp(isolevel, vertices_buffer.pos[i0], vertices_buffer.pos[i1], values_buffer.values[i0], values_buffer.values[i1]);
-		normlist[0] = vertex_interp(isolevel, normals_buffer.normals[i0], normals_buffer.normals[i1], values_buffer.values[i0], values_buffer.values[i1]);
+		normlist[0] = normal_interp(isolevel, normals_buffer.normals[i0], normals_buffer.normals[i1], values_buffer.values[i0], values_buffer.values[i1]);
 	}
 	if (bool(edgeTable[cubeindex] & 2)){
 		vertlist[1] = vertex_interp(isolevel, vertices_buffer.pos[i1], vertices_buffer.pos[i2], values_buffer.values[i1], values_buffer.values[i2]);
-		normlist[1] = vertex_interp(isolevel, normals_buffer.normals[i1], normals_buffer.normals[i2], values_buffer.values[i1], values_buffer.values[i2]);
+		normlist[1] = normal_interp(isolevel, normals_buffer.normals[i1], normals_buffer.normals[i2], values_buffer.values[i1], values_buffer.values[i2]);
 	}		
 	if (bool(edgeTable[cubeindex] & 4)){
 		vertlist[2] = vertex_interp(isolevel, vertices_buffer.pos[i2], vertices_buffer.pos[i3], values_buffer.values[i2], values_buffer.values[i3]);
-		normlist[2] = vertex_interp(isolevel, normals_buffer.normals[i2], normals_buffer.normals[i3], values_buffer.values[i2], values_buffer.values[i3]);
+		normlist[2] = normal_interp(isolevel, normals_buffer.normals[i2], normals_buffer.normals[i3], values_buffer.values[i2], values_buffer.values[i3]);
 	}
 	if (bool(edgeTable[cubeindex] & 8)){
 		vertlist[3] = vertex_interp(isolevel, vertices_buffer.pos[i3], vertices_buffer.pos[i0], values_buffer.values[i3], values_buffer.values[i0]);
-		normlist[3] = vertex_interp(isolevel, normals_buffer.normals[i3], normals_buffer.normals[i0], values_buffer.values[i3], values_buffer.values[i0]);
+		normlist[3] = normal_interp(isolevel, normals_buffer.normals[i3], normals_buffer.normals[i0], values_buffer.values[i3], values_buffer.values[i0]);
 	}	
 	if (bool(edgeTable[cubeindex] & 16)){
 		vertlist[4] = vertex_interp(isolevel, vertices_buffer.pos[i4], vertices_buffer.pos[i5], values_buffer.values[i4], values_buffer.values[i5]);
-		normlist[4] = vertex_interp(isolevel, normals_buffer.normals[i4], normals_buffer.normals[i5], values_buffer.values[i4], values_buffer.values[i5]);
+		normlist[4] = normal_interp(isolevel, normals_buffer.normals[i4], normals_buffer.normals[i5], values_buffer.values[i4], values_buffer.values[i5]);
 	}
 	if (bool(edgeTable[cubeindex] & 32)){
 		vertlist[5] = vertex_interp(isolevel, vertices_buffer.pos[i5], vertices_buffer.pos[i6], values_buffer.values[i5], values_buffer.values[i6]);
-		normlist[5] = vertex_interp(isolevel, normals_buffer.normals[i5], normals_buffer.normals[i6], values_buffer.values[i5], values_buffer.values[i6]);
+		normlist[5] = normal_interp(isolevel, normals_buffer.normals[i5], normals_buffer.normals[i6], values_buffer.values[i5], values_buffer.values[i6]);
 	}
 	if (bool(edgeTable[cubeindex] & 64)){
 		vertlist[6] = vertex_interp(isolevel, vertices_buffer.pos[i6], vertices_buffer.pos[i7], values_buffer.values[i6], values_buffer.values[i7]);
-		normlist[6] = vertex_interp(isolevel, normals_buffer.normals[i6], normals_buffer.normals[i7], values_buffer.values[i6], values_buffer.values[i7]);
+		normlist[6] = normal_interp(isolevel, normals_buffer.normals[i6], normals_buffer.normals[i7], values_buffer.values[i6], values_buffer.values[i7]);
 	}
 	if (bool(edgeTable[cubeindex] & 128)){
 		vertlist[7] = vertex_interp(isolevel, vertices_buffer.pos[i7], vertices_buffer.pos[i4], values_buffer.values[i7], values_buffer.values[i4]);
-		normlist[7] = vertex_interp(isolevel, normals_buffer.normals[i7], normals_buffer.normals[i4], values_buffer.values[i7], values_buffer.values[i4]);
+		normlist[7] = normal_interp(isolevel, normals_buffer.normals[i7], normals_buffer.normals[i4], values_buffer.values[i7], values_buffer.values[i4]);
 	}
 	if (bool(edgeTable[cubeindex] & 256)){
 		vertlist[8] = vertex_interp(isolevel, vertices_buffer.pos[i0], vertices_buffer.pos[i4], values_buffer.values[i0], values_buffer.values[i4]);
-		normlist[8] = vertex_interp(isolevel, normals_buffer.normals[i0], normals_buffer.normals[i4], values_buffer.values[i0], values_buffer.values[i4]);
+		normlist[8] = normal_interp(isolevel, normals_buffer.normals[i0], normals_buffer.normals[i4], values_buffer.values[i0], values_buffer.values[i4]);
 	}
 	if (bool(edgeTable[cubeindex] & 512)){
 		vertlist[9] = vertex_interp(isolevel, vertices_buffer.pos[i1], vertices_buffer.pos[i5], values_buffer.values[i1], values_buffer.values[i5]);
-		normlist[9] = vertex_interp(isolevel, normals_buffer.normals[i1], normals_buffer.normals[i5], values_buffer.values[i1], values_buffer.values[i5]);
+		normlist[9] = normal_interp(isolevel, normals_buffer.normals[i1], normals_buffer.normals[i5], values_buffer.values[i1], values_buffer.values[i5]);
 	}
 	if (bool(edgeTable[cubeindex] & 1024)){
 		vertlist[10] = vertex_interp(isolevel, vertices_buffer.pos[i2], vertices_buffer.pos[i6], values_buffer.values[i2], values_buffer.values[i6]);
-		normlist[10] = vertex_interp(isolevel, normals_buffer.normals[i2], normals_buffer.normals[i6], values_buffer.values[i2], values_buffer.values[i6]);
+		normlist[10] = normal_interp(isolevel, normals_buffer.normals[i2], normals_buffer.normals[i6], values_buffer.values[i2], values_buffer.values[i6]);
 	}
 	if (bool(edgeTable[cubeindex] & 2048)){
 		vertlist[11] = vertex_interp(isolevel, vertices_buffer.pos[i3], vertices_buffer.pos[i7], values_buffer.values[i3], values_buffer.values[i7]);
-		normlist[11] = vertex_interp(isolevel, normals_buffer.normals[i3], normals_buffer.normals[i7], values_buffer.values[i3], values_buffer.values[i7]);
+		normlist[11] = normal_interp(isolevel, normals_buffer.normals[i3], normals_buffer.normals[i7], values_buffer.values[i3], values_buffer.values[i7]);
 	}
 
 	uint i = 0;
