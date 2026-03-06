@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://6lqobm0dm1f0"
+path="res://.godot/imported/prefixsum_triangles.glsl-689cfc81d6931ddc197f14c28268198e.res"
+
+[deps]
+
+source_file="res://Scripts/prefixsum_triangles.glsl"
+dest_files=["res://.godot/imported/prefixsum_triangles.glsl-689cfc81d6931ddc197f14c28268198e.res"]
+
+[params]
+

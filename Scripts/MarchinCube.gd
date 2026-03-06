@@ -22,6 +22,7 @@ var grid_val: PackedFloat32Array
 var tri_pos: PackedVector4Array
 var tri_norm: PackedVector4Array
 var tri_mask: PackedInt32Array
+var tri_prefixsum: PackedInt32Array
 # border element indices
 var border_indices: PackedInt32Array
 
@@ -38,6 +39,9 @@ var populate_shader
 var mask_shaderfile: Resource
 var mask_shaderfile_spirv: RDShaderSPIRV
 var mask_shader
+var prefixsum_shaderfile: Resource
+var prefixsum_shaderfile_spirv: RDShaderSPIRV
+var prefixsum_shader
 
 @onready var meshInstance: MeshInstance3D = $MeshInstance3D
 
@@ -138,9 +142,11 @@ func setup_compute() -> void:
 	tri_pos.resize(tri_size)
 	tri_norm.resize(tri_size)
 	tri_mask.resize(tri_size)
+	tri_prefixsum.resize(tri_size)
 	tri_pos.fill(Vector4(-1, -1, -1, -1))
 	tri_norm.fill(Vector4(-1, -1, -1, -1))
 	tri_mask.fill(0)
+	tri_prefixsum.fill(0)
 	
 	rd = RenderingServer.create_local_rendering_device()
 	
@@ -153,6 +159,9 @@ func setup_compute() -> void:
 	mask_shaderfile_spirv = mask_shaderfile.get_spirv()
 	mask_shader = rd.shader_create_from_spirv(mask_shaderfile_spirv)
 	
+	prefixsum_shaderfile = load("res://Scripts/prefixsum_triangles.glsl")
+	prefixsum_shaderfile_spirv = prefixsum_shaderfile.get_spirv()
+	prefixsum_shader = rd.shader_create_from_spirv(prefixsum_shaderfile_spirv)
 	
 	#initializing storage buffers
 	# VerticesBuffer
@@ -211,6 +220,14 @@ func setup_compute() -> void:
 	uniform_tri_mask.binding = 6
 	uniform_tri_mask.add_id(tri_mask_buffer)
 	
+	# TrianglePrefixSumBuffer
+	var tri_prefixsum_bytes: PackedByteArray = tri_prefixsum.to_byte_array()
+	var tri_prefixsum_buffer := rd.storage_buffer_create(tri_prefixsum_bytes.size(), tri_prefixsum_bytes)
+	var uniform_tri_prefixsum := RDUniform.new()
+	uniform_tri_prefixsum.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+	uniform_tri_prefixsum.binding = 7
+	uniform_tri_prefixsum.add_id(tri_prefixsum_buffer)
+	
 	compute_list = rd.compute_list_begin()
 	
 	# Populate Shader....................................................................................
@@ -236,6 +253,16 @@ func setup_compute() -> void:
 	rd.compute_list_set_push_constant(compute_list, mask_params, mask_params.size())
 	rd.compute_list_dispatch(compute_list, ceil(tri_size / 64.0), 1, 1)
 	
+	# Prefixsum Shader...................................................................................
+	var uniform_prefixsum_set := rd.uniform_set_create([uniform_tri_pos, uniform_tri_mask, uniform_tri_prefixsum], prefixsum_shader, 0)
+	var prefixsum_pipeline := rd.compute_pipeline_create(prefixsum_shader)
+	rd.compute_list_bind_compute_pipeline(compute_list, prefixsum_pipeline)
+	rd.compute_list_bind_uniform_set(compute_list, uniform_prefixsum_set, 0)
+	
+	var prefixsum_params: PackedByteArray = PackedInt32Array([tri_size, 0, 0, 0]).to_byte_array()
+	rd.compute_list_set_push_constant(compute_list, prefixsum_params, prefixsum_params.size())
+	rd.compute_list_dispatch(compute_list, ceil(tri_size / 64.0), 1, 1)
+	
 	rd.compute_list_end()
 	rd.submit()
 	rd.sync()
@@ -244,9 +271,13 @@ func setup_compute() -> void:
 	#var tri_display := tri_display_bytes.to_float32_array()
 	#print("Triangles: ", tri_display)
 	
-	var mask_display_bytes := rd.buffer_get_data(tri_mask_buffer)
-	var mask_display := mask_display_bytes.to_int32_array()
-	print("Mask: ", mask_display)
+	#var mask_display_bytes := rd.buffer_get_data(tri_mask_buffer)
+	#var mask_display := mask_display_bytes.to_int32_array()
+	#print("Mask: ", mask_display)
+	
+	var prefixsum_display_bytes := rd.buffer_get_data(tri_prefixsum_buffer)
+	var prefixsum_display := prefixsum_display_bytes.to_int32_array()
+	print("Prefixsum: ", prefixsum_display)
 
 func main_march() -> void:
 	tri_pos.clear()
