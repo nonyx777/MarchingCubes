@@ -27,6 +27,11 @@ var tri_compact: PackedVector4Array
 # border element indices
 var border_indices: PackedInt32Array
 
+# result triangle array
+var final_tri_vert: PackedVector3Array
+var final_tri_norm: PackedVector3Array
+var final_tri_ind: PackedInt32Array
+
 # surface
 var surface_array = Array()
 var indices: PackedInt32Array = PackedInt32Array()
@@ -238,13 +243,20 @@ func setup_compute() -> void:
 	uniform_tri_prefixsum.binding = 7
 	uniform_tri_prefixsum.add_id(tri_prefixsum_buffer)
 	
-	# TriangleCompactBuffer
-	var tri_compact_bytes: PackedByteArray = tri_compact.to_byte_array()
-	var tri_compact_buffer := rd.storage_buffer_create(tri_compact_bytes.size(), tri_compact_bytes)
-	var uniform_tri_compact := RDUniform.new()
-	uniform_tri_compact.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
-	uniform_tri_compact.binding = 8
-	uniform_tri_compact.add_id(tri_compact_buffer)
+	# TriangleCompactVertexBuffer
+	var tri_compact_vertex_bytes: PackedByteArray = tri_compact.to_byte_array()
+	var tri_compact_vertex_buffer := rd.storage_buffer_create(tri_compact_vertex_bytes.size(), tri_compact_vertex_bytes)
+	var uniform_tri_compact_vertex := RDUniform.new()
+	uniform_tri_compact_vertex.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+	uniform_tri_compact_vertex.binding = 8
+	uniform_tri_compact_vertex.add_id(tri_compact_vertex_buffer)
+	
+	var tri_compact_normal_bytes: PackedByteArray = tri_compact.to_byte_array()
+	var tri_compact_normal_buffer := rd.storage_buffer_create(tri_compact_normal_bytes.size(), tri_compact_normal_bytes)
+	var uniform_tri_compact_normal := RDUniform.new()
+	uniform_tri_compact_normal.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+	uniform_tri_compact_normal.binding = 9
+	uniform_tri_compact_normal.add_id(tri_compact_normal_buffer)
 	
 	compute_list = rd.compute_list_begin()
 	
@@ -281,7 +293,7 @@ func setup_compute() -> void:
 	rd.compute_list_dispatch(compute_list, ceil(tri_size / 64.0), 1, 1)
 	
 	# Compact Shader.....................................................................................
-	var uniform_compact_set := rd.uniform_set_create([uniform_tri_pos, uniform_tri_mask, uniform_tri_prefixsum, uniform_tri_compact], compact_shader, 0)
+	var uniform_compact_set := rd.uniform_set_create([uniform_tri_pos, uniform_tri_norm, uniform_tri_mask, uniform_tri_prefixsum, uniform_tri_compact_vertex, uniform_tri_compact_normal], compact_shader, 0)
 	var compact_pipeline := rd.compute_pipeline_create(compact_shader)
 	rd.compute_list_bind_compute_pipeline(compute_list, compact_pipeline)
 	rd.compute_list_bind_uniform_set(compute_list, uniform_compact_set, 0)
@@ -306,9 +318,22 @@ func setup_compute() -> void:
 	#var prefixsum_display := prefixsum_display_bytes.to_int32_array()
 	#print("Prefixsum: ", prefixsum_display)
 	
-	var compact_display_bytes := rd.buffer_get_data(tri_compact_buffer)
-	var compact_display := compact_display_bytes.to_float32_array()
-	print("Compact: ", compact_display)
+	var compact_vertex_display_bytes := rd.buffer_get_data(tri_compact_vertex_buffer)
+	var compact_vertex_display := compact_vertex_display_bytes.to_float32_array()
+	#print("Compact: ", compact_vertex_display)
+	
+	var compact_normal_display_bytes := rd.buffer_get_data(tri_compact_normal_buffer)
+	var compact_normal_display := compact_normal_display_bytes.to_float32_array()
+	#print("Compact: ", compact_normal_display)
+	
+	for i in range(0, compact_vertex_display.size(), 4):
+		if compact_vertex_display[i] == -1:
+			break
+		final_tri_vert.append(Vector3(compact_vertex_display[i], compact_vertex_display[i+1], compact_vertex_display[i+2]))
+		final_tri_norm.append(Vector3(compact_normal_display[i], compact_normal_display[i+1], compact_normal_display[i+2]))
+	
+	for i in range(final_tri_vert.size()):
+		final_tri_ind.append(i)
 
 func main_march() -> void:
 	tri_pos.clear()
@@ -330,23 +355,22 @@ func main_march() -> void:
 	for i in range(n*3):
 		indices.append(i)
 	
-	surface_array[Mesh.ARRAY_VERTEX] = tri_pos
-	surface_array[Mesh.ARRAY_INDEX] = indices
-	surface_array[Mesh.ARRAY_NORMAL] = tri_norm
+	surface_array[Mesh.ARRAY_VERTEX] = final_tri_vert
+	surface_array[Mesh.ARRAY_INDEX] = final_tri_ind
+	surface_array[Mesh.ARRAY_NORMAL] = final_tri_norm
 	meshInstance.mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surface_array)
 	
 	print("Points: ", grid_pos.size())
 	print("Number of Triangles: ", n)
-	print("Number of Vertices: ", tri_pos.size())
-	print("Number of Indices: ", indices.size())
-	print("Number of Normals: ", tri_norm.size())
+	print("Number of Vertices: ", final_tri_vert.size())
+	print("Number of Indices: ", final_tri_ind.size())
+	print("Number of Normals: ", final_tri_norm.size())
 
 func _ready() -> void:
 	polygonize = Polygonise.new()
 	construct_grid()
 	setup_compute()
-	print("Works")
-	#main_march()
+	main_march()
 
 #func _on_h_slider_value_changed(value: float) -> void:
 	#sphere_radius = value
