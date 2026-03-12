@@ -80,6 +80,18 @@ var mask_pipeline: RID
 var prefixsum_pipeline: RID
 var compact_pipeline: RID
 
+# Uniforms
+var uniform_vertices: RDUniform
+var uniform_normals: RDUniform
+var uniform_values: RDUniform
+var uniform_border_indices: RDUniform
+var uniform_tri_pos: RDUniform
+var uniform_tri_norm: RDUniform
+var uniform_tri_mask: RDUniform
+var uniform_tri_prefixsum: RDUniform
+var uniform_tri_compact_vertex: RDUniform
+var uniform_tri_compact_normal: RDUniform
+
 
 @onready var meshInstance: MeshInstance3D = $MeshInstance3D
 
@@ -189,7 +201,7 @@ func setup_compute() -> void:
 	# VerticesBuffer
 	var grid_pos_bytes: PackedByteArray = grid_pos.to_byte_array()
 	vertices_buffer = rd.storage_buffer_create(grid_pos_bytes.size(), grid_pos_bytes)
-	var uniform_vertices := RDUniform.new()
+	uniform_vertices = RDUniform.new()
 	uniform_vertices.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_vertices.binding = 0
 	uniform_vertices.add_id(vertices_buffer)
@@ -197,7 +209,7 @@ func setup_compute() -> void:
 	# NormalsBuffer
 	var grid_norm_bytes: PackedByteArray = grid_norm.to_byte_array()
 	normals_buffer = rd.storage_buffer_create(grid_norm_bytes.size(), grid_norm_bytes)
-	var uniform_normals := RDUniform.new()
+	uniform_normals = RDUniform.new()
 	uniform_normals.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_normals.binding = 1
 	uniform_normals.add_id(normals_buffer)
@@ -205,7 +217,7 @@ func setup_compute() -> void:
 	# ValuesBuffer
 	var grid_val_bytes: PackedByteArray = grid_val.to_byte_array()
 	values_buffer = rd.storage_buffer_create(grid_val_bytes.size(), grid_val_bytes)
-	var uniform_values := RDUniform.new()
+	uniform_values = RDUniform.new()
 	uniform_values.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_values.binding = 2
 	uniform_values.add_id(values_buffer)
@@ -213,7 +225,7 @@ func setup_compute() -> void:
 	# BorderElementsBuffer
 	var border_indices_bytes: PackedByteArray = border_indices.to_byte_array()
 	border_indices_buffer = rd.storage_buffer_create(border_indices_bytes.size(), border_indices_bytes)
-	var uniform_border_indices := RDUniform.new()
+	uniform_border_indices = RDUniform.new()
 	uniform_border_indices.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_border_indices.binding = 3
 	uniform_border_indices.add_id(border_indices_buffer)
@@ -221,7 +233,7 @@ func setup_compute() -> void:
 	# TriangleVertexBuffer
 	var tri_pos_bytes: PackedByteArray = tri_pos.to_byte_array()
 	tri_pos_buffer = rd.storage_buffer_create(tri_pos_bytes.size(), tri_pos_bytes)
-	var uniform_tri_pos := RDUniform.new()
+	uniform_tri_pos = RDUniform.new()
 	uniform_tri_pos.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_tri_pos.binding = 4
 	uniform_tri_pos.add_id(tri_pos_buffer)
@@ -229,7 +241,7 @@ func setup_compute() -> void:
 	# TriangleNormalBuffer
 	var tri_norm_bytes: PackedByteArray = tri_norm.to_byte_array()
 	tri_norm_buffer = rd.storage_buffer_create(tri_norm_bytes.size(), tri_norm_bytes)
-	var uniform_tri_norm := RDUniform.new()
+	uniform_tri_norm = RDUniform.new()
 	uniform_tri_norm.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_tri_norm.binding = 5
 	uniform_tri_norm.add_id(tri_norm_buffer)
@@ -237,7 +249,7 @@ func setup_compute() -> void:
 	# TriangleMaskBuffer
 	var tri_mask_bytes: PackedByteArray = tri_mask.to_byte_array()
 	tri_mask_buffer = rd.storage_buffer_create(tri_mask_bytes.size(), tri_mask_bytes)
-	var uniform_tri_mask := RDUniform.new()
+	uniform_tri_mask = RDUniform.new()
 	uniform_tri_mask.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_tri_mask.binding = 6
 	uniform_tri_mask.add_id(tri_mask_buffer)
@@ -245,7 +257,7 @@ func setup_compute() -> void:
 	# TrianglePrefixSumBuffer
 	var tri_prefixsum_bytes: PackedByteArray = tri_prefixsum.to_byte_array()
 	tri_prefixsum_buffer = rd.storage_buffer_create(tri_prefixsum_bytes.size(), tri_prefixsum_bytes)
-	var uniform_tri_prefixsum := RDUniform.new()
+	uniform_tri_prefixsum = RDUniform.new()
 	uniform_tri_prefixsum.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_tri_prefixsum.binding = 7
 	uniform_tri_prefixsum.add_id(tri_prefixsum_buffer)
@@ -253,18 +265,20 @@ func setup_compute() -> void:
 	# TriangleCompactVertexBuffer
 	var tri_compact_vertex_bytes: PackedByteArray = tri_compact.to_byte_array()
 	tri_compact_vertex_buffer = rd.storage_buffer_create(tri_compact_vertex_bytes.size(), tri_compact_vertex_bytes)
-	var uniform_tri_compact_vertex := RDUniform.new()
+	uniform_tri_compact_vertex = RDUniform.new()
 	uniform_tri_compact_vertex.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_tri_compact_vertex.binding = 8
 	uniform_tri_compact_vertex.add_id(tri_compact_vertex_buffer)
 	
 	var tri_compact_normal_bytes: PackedByteArray = tri_compact.to_byte_array()
 	tri_compact_normal_buffer = rd.storage_buffer_create(tri_compact_normal_bytes.size(), tri_compact_normal_bytes)
-	var uniform_tri_compact_normal := RDUniform.new()
+	uniform_tri_compact_normal = RDUniform.new()
 	uniform_tri_compact_normal.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_tri_compact_normal.binding = 9
 	uniform_tri_compact_normal.add_id(tri_compact_normal_buffer)
-	
+
+func compute_pipeline() -> void:
+	var tri_size: int = grid_pos.size() * 15
 	compute_list = rd.compute_list_begin()
 	
 	# Setup Shader.....................................................................................
@@ -324,7 +338,7 @@ func setup_compute() -> void:
 	rd.compute_list_end()
 	rd.submit()
 	rd.sync()
-	
+
 	var compact_vertex_display_bytes := rd.buffer_get_data(tri_compact_vertex_buffer)
 	var compact_vertex_display := compact_vertex_display_bytes.to_float32_array()
 	#print("Compact: ", compact_vertex_display)
@@ -374,11 +388,10 @@ func _ready() -> void:
 	setup_compute()
 	main_march()
 
-#func _on_h_slider_value_changed(value: float) -> void:
-	#sphere_radius = value
-	#torus_radius = value
-	#noise_randomness = value * 10
-	#main_march()
+func _on_h_slider_value_changed(value: float) -> void:
+	isolevel = value
+	compute_pipeline()
+	main_march()
 	
 func _exit_tree() -> void:
 	free_compute_resources()
