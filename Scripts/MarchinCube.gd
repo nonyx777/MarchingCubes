@@ -51,6 +51,9 @@ var prefixsum_shader
 var compact_shaderfile: Resource
 var compact_shaderfile_spirv: RDShaderSPIRV
 var compact_shader
+var setupcells_shaderfile: Resource
+var setupcells_shaderfile_spirv: RDShaderSPIRV
+var setupcells_shader
 
 @onready var meshInstance: MeshInstance3D = $MeshInstance3D
 
@@ -110,8 +113,6 @@ func construct_grid() -> void:
 	grid_norm.clear()
 	grid_val.resize(grid_pos.size())
 	grid_norm.resize(grid_pos.size())
-	for i in range(grid_pos.size()):
-		setup_cells(i, grid_size.x, grid_size.y, grid_size.z)
 
 func get_border() -> void:
 	var size: int = grid_size.z
@@ -153,6 +154,10 @@ func setup_compute() -> void:
 	compact_shaderfile = load("res://Scripts/compact_triangles.glsl")
 	compact_shaderfile_spirv = compact_shaderfile.get_spirv()
 	compact_shader = rd.shader_create_from_spirv(compact_shaderfile_spirv)
+	
+	setupcells_shaderfile = load("res://Scripts/setup_cells.glsl")
+	setupcells_shaderfile_spirv = setupcells_shaderfile.get_spirv()
+	setupcells_shader = rd.shader_create_from_spirv(setupcells_shaderfile_spirv)
 	
 	#initializing storage buffers
 	# VerticesBuffer
@@ -236,6 +241,18 @@ func setup_compute() -> void:
 	
 	compute_list = rd.compute_list_begin()
 	
+	# Setup Shader.....................................................................................
+	var uniform_setupcells_set := rd.uniform_set_create([uniform_vertices, uniform_normals, uniform_values], setupcells_shader, 0)
+	var setupcells_pipeline := rd.compute_pipeline_create(setupcells_shader)
+	rd.compute_list_bind_compute_pipeline(compute_list, setupcells_pipeline)
+	rd.compute_list_bind_uniform_set(compute_list, uniform_setupcells_set, 0)
+	
+	var setupcells_params: PackedByteArray = PackedInt32Array([tri_size, grid_size.x, 0, 0]).to_byte_array()
+	rd.compute_list_set_push_constant(compute_list, setupcells_params, setupcells_params.size())
+	rd.compute_list_dispatch(compute_list, ceil(tri_size / 64.0), 1, 1)
+	
+	rd.compute_list_add_barrier(compute_list)
+	
 	# Populate Shader....................................................................................
 	var uniform_populate_set := rd.uniform_set_create([uniform_vertices, uniform_normals, uniform_values, uniform_border_indices, uniform_tri_pos, uniform_tri_norm], populate_shader, 0)
 	var populate_pipeline := rd.compute_pipeline_create(populate_shader)
@@ -282,18 +299,6 @@ func setup_compute() -> void:
 	rd.submit()
 	rd.sync()
 	
-	#var tri_display_bytes := rd.buffer_get_data(tri_pos_buffer)
-	#var tri_display := tri_display_bytes.to_float32_array()
-	#print("Triangles: ", tri_display)
-	
-	#var mask_display_bytes := rd.buffer_get_data(tri_mask_buffer)
-	#var mask_display := mask_display_bytes.to_int32_array()
-	#print("Mask: ", mask_display)
-	
-	#var prefixsum_display_bytes := rd.buffer_get_data(tri_prefixsum_buffer)
-	#var prefixsum_display := prefixsum_display_bytes.to_int32_array()
-	#print("Prefixsum: ", prefixsum_display)
-	
 	var compact_vertex_display_bytes := rd.buffer_get_data(tri_compact_vertex_buffer)
 	var compact_vertex_display := compact_vertex_display_bytes.to_float32_array()
 	#print("Compact: ", compact_vertex_display)
@@ -312,8 +317,6 @@ func setup_compute() -> void:
 		final_tri_ind.append(i)
 
 func main_march() -> void:
-	tri_pos.clear()
-	tri_norm.clear()
 	# initialize surface array
 	meshInstance.mesh.clear_surfaces()
 	surface_array.resize(Mesh.ARRAY_MAX)
@@ -321,29 +324,22 @@ func main_march() -> void:
 	surface_array[Mesh.ARRAY_INDEX] = PackedInt32Array()
 	surface_array[Mesh.ARRAY_NORMAL] = PackedVector3Array()
 	
-	indices.clear()
+	#var n = polygonize.Polygonize(grid_pos, grid_norm, grid_val, isolevel, grid_size.x, grid_size.y, tri_pos, tri_norm, border_indices)
 	
-	for i in range(grid_pos.size()):
-		setup_cells(i, grid_size.x, grid_size.y, grid_size.z)
-	var n = polygonize.Polygonize(grid_pos, grid_norm, grid_val, isolevel, grid_size.x, grid_size.y, tri_pos, tri_norm, border_indices)
-	
-	
-	for i in range(n*3):
-		indices.append(i)
-	
-	surface_array[Mesh.ARRAY_VERTEX] = final_tri_vert
-	surface_array[Mesh.ARRAY_INDEX] = final_tri_ind
-	surface_array[Mesh.ARRAY_NORMAL] = final_tri_norm
-	meshInstance.mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surface_array)
+	if final_tri_vert.size() != 0:
+		surface_array[Mesh.ARRAY_VERTEX] = final_tri_vert
+		surface_array[Mesh.ARRAY_INDEX] = final_tri_ind
+		surface_array[Mesh.ARRAY_NORMAL] = final_tri_norm
+		meshInstance.mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surface_array)
 	
 	print("Points: ", grid_pos.size())
-	print("Number of Triangles: ", n)
+	#print("Number of Triangles: ", n)
 	print("Number of Vertices: ", final_tri_vert.size())
 	print("Number of Indices: ", final_tri_ind.size())
 	print("Number of Normals: ", final_tri_norm.size())
 
 func _ready() -> void:
-	polygonize = Polygonise.new()
+	#polygonize = Polygonise.new()
 	construct_grid()
 	setup_compute()
 	main_march()
