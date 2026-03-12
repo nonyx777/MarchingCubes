@@ -93,38 +93,14 @@ func get_point_index(x: int, y: int, z: int, sx: int, sy: int):
 	return z * (sy) * (sx) + y * (sx) + x
 
 func setup_cells(i: int, sx: int, sy: int, sz: int) -> void:
-	if i in border_indices:
-		return
-	
 	var i0 = i
-	var i1 = i0 + 1
-	var i2 = i0 + (sx)
-	var i3 = i2 + 1
-	var i4 = i0 + (sy) * (sx)
-	var i5 = i4 + 1
-	var i6 = i4 + (sx)
-	var i7 = i6 + 1
-	
-	if i7 >= (sx * sx * sx):
-		return
-	
 	grid_val[i0] = noise_density(grid_pos[i0], noise_randomness)
-	grid_val[i1] = noise_density(grid_pos[i1], noise_randomness)
-	grid_val[i2] = noise_density(grid_pos[i2], noise_randomness)
-	grid_val[i3] = noise_density(grid_pos[i3], noise_randomness)
-	grid_val[i4] = noise_density(grid_pos[i4], noise_randomness)
-	grid_val[i5] = noise_density(grid_pos[i5], noise_randomness)
-	grid_val[i6] = noise_density(grid_pos[i6], noise_randomness)
-	grid_val[i7] = noise_density(grid_pos[i7], noise_randomness)
-	
-	# Computer normal using central difference
-	for idx in [i0, i1, i2, i3, i4, i5, i6, i7]:
-		var pos: Vector4 = grid_pos[idx]
-		var n_x = (noise_density(Vector4(pos.x + 1, pos.y, pos.z, 0.0), noise_randomness) - noise_density(Vector4(pos.x-1, pos.y, pos.z, 0.0), noise_randomness)) / 2 * sx
-		var n_y = (noise_density(Vector4(pos.x, pos.y + 1, pos.z, 0.0), noise_randomness) - noise_density(Vector4(pos.x, pos.y-1, pos.z, 0.0), noise_randomness)) / 2 * sy
-		var n_z = (noise_density(Vector4(pos.x, pos.y, pos.z + 1, 0.0), noise_randomness) - noise_density(Vector4(pos.x, pos.y, pos.z-1, 0.0), noise_randomness)) / 2 * sz
-		var n_w = -1
-		grid_norm[idx] = Vector4(n_x, n_y, n_z, n_w).normalized()
+	var pos: Vector4 = grid_pos[i0]
+	var n_x = (noise_density(Vector4(pos.x + 1, pos.y, pos.z, 0.0), noise_randomness) - noise_density(Vector4(pos.x-1, pos.y, pos.z, 0.0), noise_randomness)) / 2 * sx
+	var n_y = (noise_density(Vector4(pos.x, pos.y + 1, pos.z, 0.0), noise_randomness) - noise_density(Vector4(pos.x, pos.y-1, pos.z, 0.0), noise_randomness)) / 2 * sy
+	var n_z = (noise_density(Vector4(pos.x, pos.y, pos.z + 1, 0.0), noise_randomness) - noise_density(Vector4(pos.x, pos.y, pos.z-1, 0.0), noise_randomness)) / 2 * sz
+	var n_w = -1
+	grid_norm[i0] = Vector4(n_x, n_y, n_z, n_w).normalized()
 
 func construct_grid() -> void:
 	total_point_count = grid_size.x * grid_size.y * grid_size.z
