@@ -11,7 +11,7 @@ var noise_randomness: float = 5
 var polygonize: Polygonise
 
 # grid
-var grid_size: Vector3i = Vector3i(10, 10, 10)
+var grid_size: Vector3i = Vector3i(12, 12, 12)
 var total_point_count: int
 var spacing: float = 1
 # grid cell related
@@ -34,7 +34,6 @@ var final_tri_ind: PackedInt32Array
 
 # surface
 var surface_array = Array()
-var indices: PackedInt32Array = PackedInt32Array()
 
 # Compute shader related variables
 var rd: RenderingDevice
@@ -54,6 +53,33 @@ var compact_shader
 var setupcells_shaderfile: Resource
 var setupcells_shaderfile_spirv: RDShaderSPIRV
 var setupcells_shader
+
+# Buffer RIDs
+var vertices_buffer: RID
+var normals_buffer: RID
+var values_buffer: RID
+var border_indices_buffer: RID
+var tri_pos_buffer: RID
+var tri_norm_buffer: RID
+var tri_mask_buffer: RID
+var tri_prefixsum_buffer: RID
+var tri_compact_vertex_buffer: RID
+var tri_compact_normal_buffer: RID
+
+# Uniform set RIDs
+var uniform_setupcells_set: RID
+var uniform_populate_set: RID
+var uniform_mask_set: RID
+var uniform_prefixsum_set: RID
+var uniform_compact_set: RID
+
+# Pipeline RIDs
+var setupcells_pipeline: RID
+var populate_pipeline: RID
+var mask_pipeline: RID
+var prefixsum_pipeline: RID
+var compact_pipeline: RID
+
 
 @onready var meshInstance: MeshInstance3D = $MeshInstance3D
 
@@ -162,7 +188,7 @@ func setup_compute() -> void:
 	#initializing storage buffers
 	# VerticesBuffer
 	var grid_pos_bytes: PackedByteArray = grid_pos.to_byte_array()
-	var vertices_buffer := rd.storage_buffer_create(grid_pos_bytes.size(), grid_pos_bytes)
+	vertices_buffer = rd.storage_buffer_create(grid_pos_bytes.size(), grid_pos_bytes)
 	var uniform_vertices := RDUniform.new()
 	uniform_vertices.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_vertices.binding = 0
@@ -170,7 +196,7 @@ func setup_compute() -> void:
 	
 	# NormalsBuffer
 	var grid_norm_bytes: PackedByteArray = grid_norm.to_byte_array()
-	var normals_buffer := rd.storage_buffer_create(grid_norm_bytes.size(), grid_norm_bytes)
+	normals_buffer = rd.storage_buffer_create(grid_norm_bytes.size(), grid_norm_bytes)
 	var uniform_normals := RDUniform.new()
 	uniform_normals.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_normals.binding = 1
@@ -178,7 +204,7 @@ func setup_compute() -> void:
 	
 	# ValuesBuffer
 	var grid_val_bytes: PackedByteArray = grid_val.to_byte_array()
-	var values_buffer := rd.storage_buffer_create(grid_val_bytes.size(), grid_val_bytes)
+	values_buffer = rd.storage_buffer_create(grid_val_bytes.size(), grid_val_bytes)
 	var uniform_values := RDUniform.new()
 	uniform_values.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_values.binding = 2
@@ -186,7 +212,7 @@ func setup_compute() -> void:
 	
 	# BorderElementsBuffer
 	var border_indices_bytes: PackedByteArray = border_indices.to_byte_array()
-	var border_indices_buffer := rd.storage_buffer_create(border_indices_bytes.size(), border_indices_bytes)
+	border_indices_buffer = rd.storage_buffer_create(border_indices_bytes.size(), border_indices_bytes)
 	var uniform_border_indices := RDUniform.new()
 	uniform_border_indices.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_border_indices.binding = 3
@@ -194,7 +220,7 @@ func setup_compute() -> void:
 	
 	# TriangleVertexBuffer
 	var tri_pos_bytes: PackedByteArray = tri_pos.to_byte_array()
-	var tri_pos_buffer := rd.storage_buffer_create(tri_pos_bytes.size(), tri_pos_bytes)
+	tri_pos_buffer = rd.storage_buffer_create(tri_pos_bytes.size(), tri_pos_bytes)
 	var uniform_tri_pos := RDUniform.new()
 	uniform_tri_pos.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_tri_pos.binding = 4
@@ -202,7 +228,7 @@ func setup_compute() -> void:
 	
 	# TriangleNormalBuffer
 	var tri_norm_bytes: PackedByteArray = tri_norm.to_byte_array()
-	var tri_norm_buffer := rd.storage_buffer_create(tri_norm_bytes.size(), tri_norm_bytes)
+	tri_norm_buffer = rd.storage_buffer_create(tri_norm_bytes.size(), tri_norm_bytes)
 	var uniform_tri_norm := RDUniform.new()
 	uniform_tri_norm.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_tri_norm.binding = 5
@@ -210,7 +236,7 @@ func setup_compute() -> void:
 	
 	# TriangleMaskBuffer
 	var tri_mask_bytes: PackedByteArray = tri_mask.to_byte_array()
-	var tri_mask_buffer := rd.storage_buffer_create(tri_mask_bytes.size(), tri_mask_bytes)
+	tri_mask_buffer = rd.storage_buffer_create(tri_mask_bytes.size(), tri_mask_bytes)
 	var uniform_tri_mask := RDUniform.new()
 	uniform_tri_mask.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_tri_mask.binding = 6
@@ -218,7 +244,7 @@ func setup_compute() -> void:
 	
 	# TrianglePrefixSumBuffer
 	var tri_prefixsum_bytes: PackedByteArray = tri_prefixsum.to_byte_array()
-	var tri_prefixsum_buffer := rd.storage_buffer_create(tri_prefixsum_bytes.size(), tri_prefixsum_bytes)
+	tri_prefixsum_buffer = rd.storage_buffer_create(tri_prefixsum_bytes.size(), tri_prefixsum_bytes)
 	var uniform_tri_prefixsum := RDUniform.new()
 	uniform_tri_prefixsum.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_tri_prefixsum.binding = 7
@@ -226,14 +252,14 @@ func setup_compute() -> void:
 	
 	# TriangleCompactVertexBuffer
 	var tri_compact_vertex_bytes: PackedByteArray = tri_compact.to_byte_array()
-	var tri_compact_vertex_buffer := rd.storage_buffer_create(tri_compact_vertex_bytes.size(), tri_compact_vertex_bytes)
+	tri_compact_vertex_buffer = rd.storage_buffer_create(tri_compact_vertex_bytes.size(), tri_compact_vertex_bytes)
 	var uniform_tri_compact_vertex := RDUniform.new()
 	uniform_tri_compact_vertex.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_tri_compact_vertex.binding = 8
 	uniform_tri_compact_vertex.add_id(tri_compact_vertex_buffer)
 	
 	var tri_compact_normal_bytes: PackedByteArray = tri_compact.to_byte_array()
-	var tri_compact_normal_buffer := rd.storage_buffer_create(tri_compact_normal_bytes.size(), tri_compact_normal_bytes)
+	tri_compact_normal_buffer = rd.storage_buffer_create(tri_compact_normal_bytes.size(), tri_compact_normal_bytes)
 	var uniform_tri_compact_normal := RDUniform.new()
 	uniform_tri_compact_normal.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	uniform_tri_compact_normal.binding = 9
@@ -242,8 +268,8 @@ func setup_compute() -> void:
 	compute_list = rd.compute_list_begin()
 	
 	# Setup Shader.....................................................................................
-	var uniform_setupcells_set := rd.uniform_set_create([uniform_vertices, uniform_normals, uniform_values], setupcells_shader, 0)
-	var setupcells_pipeline := rd.compute_pipeline_create(setupcells_shader)
+	uniform_setupcells_set = rd.uniform_set_create([uniform_vertices, uniform_normals, uniform_values], setupcells_shader, 0)
+	setupcells_pipeline = rd.compute_pipeline_create(setupcells_shader)
 	rd.compute_list_bind_compute_pipeline(compute_list, setupcells_pipeline)
 	rd.compute_list_bind_uniform_set(compute_list, uniform_setupcells_set, 0)
 	
@@ -254,8 +280,8 @@ func setup_compute() -> void:
 	rd.compute_list_add_barrier(compute_list)
 	
 	# Populate Shader....................................................................................
-	var uniform_populate_set := rd.uniform_set_create([uniform_vertices, uniform_normals, uniform_values, uniform_border_indices, uniform_tri_pos, uniform_tri_norm], populate_shader, 0)
-	var populate_pipeline := rd.compute_pipeline_create(populate_shader)
+	uniform_populate_set = rd.uniform_set_create([uniform_vertices, uniform_normals, uniform_values, uniform_border_indices, uniform_tri_pos, uniform_tri_norm], populate_shader, 0)
+	populate_pipeline = rd.compute_pipeline_create(populate_shader)
 	rd.compute_list_bind_compute_pipeline(compute_list, populate_pipeline)
 	rd.compute_list_bind_uniform_set(compute_list, uniform_populate_set, 0)
 	
@@ -266,8 +292,8 @@ func setup_compute() -> void:
 	rd.compute_list_add_barrier(compute_list)
 	
 	# Mask Shader......................................................................................
-	var uniform_mask_set := rd.uniform_set_create([uniform_tri_pos, uniform_tri_mask], mask_shader, 0)
-	var mask_pipeline := rd.compute_pipeline_create(mask_shader)
+	uniform_mask_set = rd.uniform_set_create([uniform_tri_pos, uniform_tri_mask], mask_shader, 0)
+	mask_pipeline = rd.compute_pipeline_create(mask_shader)
 	rd.compute_list_bind_compute_pipeline(compute_list, mask_pipeline)
 	rd.compute_list_bind_uniform_set(compute_list, uniform_mask_set, 0)
 	
@@ -276,8 +302,8 @@ func setup_compute() -> void:
 	rd.compute_list_dispatch(compute_list, ceil(tri_size / 64.0), 1, 1)
 	
 	# Prefixsum Shader...................................................................................
-	var uniform_prefixsum_set := rd.uniform_set_create([uniform_tri_pos, uniform_tri_mask, uniform_tri_prefixsum], prefixsum_shader, 0)
-	var prefixsum_pipeline := rd.compute_pipeline_create(prefixsum_shader)
+	uniform_prefixsum_set = rd.uniform_set_create([uniform_tri_pos, uniform_tri_mask, uniform_tri_prefixsum], prefixsum_shader, 0)
+	prefixsum_pipeline = rd.compute_pipeline_create(prefixsum_shader)
 	rd.compute_list_bind_compute_pipeline(compute_list, prefixsum_pipeline)
 	rd.compute_list_bind_uniform_set(compute_list, uniform_prefixsum_set, 0)
 	
@@ -286,8 +312,8 @@ func setup_compute() -> void:
 	rd.compute_list_dispatch(compute_list, ceil(tri_size / 64.0), 1, 1)
 	
 	# Compact Shader.....................................................................................
-	var uniform_compact_set := rd.uniform_set_create([uniform_tri_pos, uniform_tri_norm, uniform_tri_mask, uniform_tri_prefixsum, uniform_tri_compact_vertex, uniform_tri_compact_normal], compact_shader, 0)
-	var compact_pipeline := rd.compute_pipeline_create(compact_shader)
+	uniform_compact_set = rd.uniform_set_create([uniform_tri_pos, uniform_tri_norm, uniform_tri_mask, uniform_tri_prefixsum, uniform_tri_compact_vertex, uniform_tri_compact_normal], compact_shader, 0)
+	compact_pipeline = rd.compute_pipeline_create(compact_shader)
 	rd.compute_list_bind_compute_pipeline(compute_list, compact_pipeline)
 	rd.compute_list_bind_uniform_set(compute_list, uniform_compact_set, 0)
 	
@@ -337,6 +363,10 @@ func main_march() -> void:
 	print("Number of Vertices: ", final_tri_vert.size())
 	print("Number of Indices: ", final_tri_ind.size())
 	print("Number of Normals: ", final_tri_norm.size())
+	
+	final_tri_vert.clear()
+	final_tri_ind.clear()
+	final_tri_norm.clear()
 
 func _ready() -> void:
 	#polygonize = Polygonise.new()
@@ -349,3 +379,71 @@ func _ready() -> void:
 	#torus_radius = value
 	#noise_randomness = value * 10
 	#main_march()
+	
+func _exit_tree() -> void:
+	free_compute_resources()
+	
+func free_compute_resources() -> void:
+	if rd == null:
+		return
+	
+	# --- Uniform sets ---
+	var uniform_sets = [
+		uniform_setupcells_set,
+		uniform_populate_set,
+		uniform_mask_set,
+		uniform_prefixsum_set,
+		uniform_compact_set
+	]
+	
+	for u in uniform_sets:
+		if u.is_valid():
+			rd.free_rid(u)
+	
+	# --- Pipelines ---
+	var pipelines = [
+		setupcells_pipeline,
+		populate_pipeline,
+		mask_pipeline,
+		prefixsum_pipeline,
+		compact_pipeline
+	]
+	
+	for p in pipelines:
+		if p.is_valid():
+			rd.free_rid(p)
+	
+	# --- Buffers ---
+	var buffers = [
+		vertices_buffer,
+		normals_buffer,
+		values_buffer,
+		border_indices_buffer,
+		tri_pos_buffer,
+		tri_norm_buffer,
+		tri_mask_buffer,
+		tri_prefixsum_buffer,
+		tri_compact_vertex_buffer,
+		tri_compact_normal_buffer
+	]
+	
+	for b in buffers:
+		if b.is_valid():
+			rd.free_rid(b)
+	
+	# --- Shaders ---
+	var shaders = [
+		populate_shader,
+		mask_shader,
+		prefixsum_shader,
+		compact_shader,
+		setupcells_shader
+	]
+	
+	for s in shaders:
+		if s.is_valid():
+			rd.free_rid(s)
+	
+	# --- Destroy the rendering device ---
+	rd.free()
+	rd = null

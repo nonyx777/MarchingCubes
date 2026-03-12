@@ -297,7 +297,7 @@ const int triTable[256][16] = int[][](
 	int[](-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
 );
 
-const vec4 EPSILON = vec4(1e-4);
+const vec4 EPSILON = vec4(0.001);
 
 layout(set = 0, binding = 0, std430) restrict readonly buffer VerticesBuffer{
 	vec4 pos[];
