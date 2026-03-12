@@ -1,6 +1,6 @@
 extends Node
 
-var isolevel: float = 0.2
+var isolevel: float = 0
 var torus_parameter: Vector2 = Vector2(2, 0.5)
 var noise := FastNoiseLite.new()
 
@@ -285,7 +285,7 @@ func setup_compute() -> void:
 	rd.compute_list_bind_compute_pipeline(compute_list, populate_pipeline)
 	rd.compute_list_bind_uniform_set(compute_list, uniform_populate_set, 0)
 	
-	var populate_params: PackedByteArray = PackedInt32Array([grid_size.x, border_indices.size(), int(isolevel), 0]).to_byte_array()
+	var populate_params: PackedByteArray = PackedFloat32Array([float(grid_size.x), float(border_indices.size()), isolevel, 0]).to_byte_array()
 	rd.compute_list_set_push_constant(compute_list, populate_params, populate_params.size())
 	rd.compute_list_dispatch(compute_list, ceil(total_point_count / 64.0), 1, 1)
 	

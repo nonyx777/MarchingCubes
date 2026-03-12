@@ -330,9 +330,9 @@ layout(set = 0, binding = 5, std430) restrict buffer TrianglesNormalBuffer{
 triangles_normal_buffer;
 
 layout(push_constant) uniform Params {
-	uint size;
-	uint border_size;
-	uint isolevel;
+	float size;
+	float border_size;
+	float isolevel;
 }
 params;
 
@@ -353,10 +353,10 @@ vec4 normal_interp(float isolevel, vec4 n1, vec4 n2, float v1, float v2){
 
 void main()
 {
-	const uint size = params.size;
+	const uint size = int(params.size);
 	const uint total_size = size * size * size;
-	const float isolevel = 0;
-	const uint border_size = params.border_size;
+	const float isolevel = params.isolevel;
+	const uint border_size = int(params.border_size);
 
 	vec4 vertlist[12];
 	vec4 normlist[12];
