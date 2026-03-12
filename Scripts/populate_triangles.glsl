@@ -297,7 +297,7 @@ const int triTable[256][16] = int[][](
 	int[](-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
 );
 
-const vec4 EPSILON = vec4(0.001);
+const vec4 EPSILON = vec4(0.01);
 
 layout(set = 0, binding = 0, std430) restrict readonly buffer VerticesBuffer{
 	vec4 pos[];
@@ -355,7 +355,7 @@ void main()
 {
 	const uint size = params.size;
 	const uint total_size = size * size * size;
-	const float isolevel = float(params.isolevel);
+	const float isolevel = 0;
 	const uint border_size = params.border_size;
 
 	vec4 vertlist[12];

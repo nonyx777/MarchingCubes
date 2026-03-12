@@ -1,6 +1,6 @@
 extends Node
 
-var isolevel: float = 0
+var isolevel: float = 0.2
 var torus_parameter: Vector2 = Vector2(2, 0.5)
 var noise := FastNoiseLite.new()
 
@@ -11,9 +11,9 @@ var noise_randomness: float = 5
 var polygonize: Polygonise
 
 # grid
-var grid_size: Vector3i = Vector3i(12, 12, 12)
+var grid_size: Vector3i = Vector3i(15, 15, 15)
 var total_point_count: int
-var spacing: float = 1
+var spacing: float = 0.5
 # grid cell related
 var grid_pos: PackedVector4Array
 var grid_norm: PackedVector4Array
@@ -273,9 +273,9 @@ func setup_compute() -> void:
 	rd.compute_list_bind_compute_pipeline(compute_list, setupcells_pipeline)
 	rd.compute_list_bind_uniform_set(compute_list, uniform_setupcells_set, 0)
 	
-	var setupcells_params: PackedByteArray = PackedInt32Array([tri_size, grid_size.x, 0, 0]).to_byte_array()
+	var setupcells_params: PackedByteArray = PackedInt32Array([total_point_count, 0, 0, 0]).to_byte_array()
 	rd.compute_list_set_push_constant(compute_list, setupcells_params, setupcells_params.size())
-	rd.compute_list_dispatch(compute_list, ceil(tri_size / 64.0), 1, 1)
+	rd.compute_list_dispatch(compute_list, ceil(total_point_count / 64.0), 1, 1)
 	
 	rd.compute_list_add_barrier(compute_list)
 	

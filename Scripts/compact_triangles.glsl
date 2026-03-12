@@ -48,7 +48,7 @@ void main()
         return;
     }
 
-    if (mask_buffer.mask[idx] != 0){
+    if (mask_buffer.mask[idx] == 1){
         uint index = prefixsum_buffer.prefixsum[idx];
         compact_vertex_buffer.compact_vertex[index] = triangles_vertex_buffer.points[idx];
         compact_normal_buffer.compact_normal[index] = triangles_normal_buffer.normals[idx];

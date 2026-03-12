@@ -85,25 +85,27 @@ vec4 snoise(vec3 v)
     p2 *= norm.z;
     p3 *= norm.w;
 
+    // --- CHANGE STARTS HERE ---
     vec4 m = max(0.5 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
     vec4 m2 = m * m;
-    vec4 m3 = m2 * m;
+    vec4 m4 = m2 * m2; // Quartic falloff to match Implementation 2
+    vec4 m3 = m2 * m;  // Needed for the gradient calculation
 
-    float noise =
-        dot(m3, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+    float noise = dot(m4, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
 
     vec3 grad =
-        -8.0 * (
-            m2.x * dot(p0,x0) * x0 +
-            m2.y * dot(p1,x1) * x1 +
-            m2.z * dot(p2,x2) * x2 +
-            m2.w * dot(p3,x3) * x3
+        -8.0 * ( // Derivative of (0.5 - x^2)^4 involves an 8x factor
+            m3.x * dot(p0,x0) * x0 +
+            m3.y * dot(p1,x1) * x1 +
+            m3.z * dot(p2,x2) * x2 +
+            m3.w * dot(p3,x3) * x3
         )
         +
-        m3.x * p0 +
-        m3.y * p1 +
-        m3.z * p2 +
-        m3.w * p3;
+        m4.x * p0 +
+        m4.y * p1 +
+        m4.z * p2 +
+        m4.w * p3;
+    // --- CHANGE ENDS HERE ---
 
     return 105.0 * vec4(noise, grad);
 }
@@ -127,15 +129,20 @@ values_buffer;
 
 layout(push_constant) uniform Params {
 	uint size;
-    uint cell_size;
 }
 params;
+
+vec4 sphere_sdf(vec3 p){
+    vec3 o = vec3(5, 5, 5);
+    float l = length(p - o);
+    vec3 n = normalize(p - o);
+    return vec4(l, n.x, n.y, n.z);
+}
 
 void main()
 {
     uint idx = gl_GlobalInvocationID.x;
     uint size = params.size;
-    uint cell_size = params.cell_size;
 
     if (idx >= size){
         return;
@@ -143,9 +150,12 @@ void main()
 
     vec3 pos = vertices_buffer.pos[idx].xyz;
 
-    vec4 noise_value = snoise(pos);
+    vec4 noise_value = snoise(pos * 4);
     float density = noise_value.x;
-    vec3 normal = normalize(noise_value.yzw);
+    vec3 normal = -normalize(noise_value.yzw);
+    //vec4 noise_value = sphere_sdf(pos);
+    //float density = noise_value.x;
+    //vec3 normal = noise_value.yzw;
 
     values_buffer.values[idx] = density;
     normals_buffer.normals[idx] = vec4(normal, -1);
