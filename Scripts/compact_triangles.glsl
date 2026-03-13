@@ -33,6 +33,10 @@ layout(set = 0, binding = 9, std430) restrict buffer CompactNormalBuffer{
 }
 compact_normal_buffer;
 
+layout(set = 0, binding = 10, std430) coherent buffer TriCountBuffer{
+    uint count;
+};
+
 
 layout(push_constant) uniform Params {
     uint size;
@@ -49,6 +53,7 @@ void main()
     }
 
     if (mask_buffer.mask[idx] == 1){
+        uint count_index = atomicAdd(count, 1u);
         uint index = prefixsum_buffer.prefixsum[idx];
         compact_vertex_buffer.compact_vertex[index] = triangles_vertex_buffer.points[idx];
         compact_normal_buffer.compact_normal[index] = triangles_normal_buffer.normals[idx];
