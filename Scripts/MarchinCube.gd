@@ -368,7 +368,7 @@ func fetch_and_compute_data():
 	
 	var counter_display_bytes = rd.buffer_get_data(tri_count_buffer)
 	var counter_display := counter_display_bytes.to_int32_array()[0]
-	print("Counter: ", counter_display)
+	#print("Counter: ", counter_display)
 	
 	var compact_vertex_display_bytes := rd.buffer_get_data(tri_compact_vertex_buffer)
 	var compact_vertex_display := compact_vertex_display_bytes.to_float32_array()
@@ -378,16 +378,22 @@ func fetch_and_compute_data():
 	var compact_normal_display := compact_normal_display_bytes.to_float32_array()
 	#print("Compact: ", compact_normal_display)
 	
+	final_tri_vert.resize(counter_display)
+	final_tri_norm.resize(counter_display)
+	final_tri_ind.resize(counter_display)
 	
-	for i in range(0, compact_vertex_display.size(), 4):
-		if compact_vertex_display[i] == -1:
-			break
-		final_tri_vert.append(Vector3(compact_vertex_display[i], compact_vertex_display[i+1], compact_vertex_display[i+2]))
-		final_tri_norm.append(Vector3(compact_normal_display[i], compact_normal_display[i+1], compact_normal_display[i+2]))
-	for i in range(final_tri_vert.size()):
-		final_tri_ind.append(i)
+	print("Counter: ", counter_display)
+	print("Size: ", final_tri_vert.size())
 	
-	print("Final size: ", final_tri_vert.size())
+	if counter_display == 0:
+		return
+	for i in range(counter_display):
+		var base: int = i * 4
+		final_tri_vert[i] = Vector3(compact_vertex_display[base], compact_vertex_display[base+1], compact_vertex_display[base+2])
+		final_tri_norm[i] = Vector3(compact_normal_display[base], compact_normal_display[base+1], compact_normal_display[base+2])
+		final_tri_ind[i] = i
+	
+	#print("Final size: ", final_tri_vert.size())
 	process_mesh_data()
 
 func process_mesh_data() -> void:
