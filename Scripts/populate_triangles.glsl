@@ -2,7 +2,7 @@
 #version 450
 
 // Invocations
-layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 512, local_size_y = 1, local_size_z = 1) in;
 
 const int edgeTable[256] = int[](
 	0x0, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
@@ -465,12 +465,18 @@ void main()
 	uint i = 0;
 	uint tri_i = idx * 15;
 	while (triTable[cubeindex][i] != -1){
-		triangles_vertex_buffer.points[tri_i] = vertlist[triTable[cubeindex][i]];
-		triangles_vertex_buffer.points[tri_i+1] = vertlist[triTable[cubeindex][i+1]];
-		triangles_vertex_buffer.points[tri_i+2] = vertlist[triTable[cubeindex][i+2]];
-		triangles_normal_buffer.normals[tri_i] = normlist[triTable[cubeindex][i]];
-		triangles_normal_buffer.normals[tri_i+1] = normlist[triTable[cubeindex][i+1]];
-		triangles_normal_buffer.normals[tri_i+2] = normlist[triTable[cubeindex][i+2]];
+		vec4 a = vertlist[triTable[cubeindex][i]];
+		vec4 b = vertlist[triTable[cubeindex][i+1]];
+		vec4 c = vertlist[triTable[cubeindex][i+2]];
+		vec4 ba = b - a;
+		vec4 ca = c - a;
+		vec4 normal = -vec4(normalize(cross(ba.xyz, ca.xyz)), -1);
+		triangles_vertex_buffer.points[tri_i] = a;
+		triangles_vertex_buffer.points[tri_i+1] = b;
+		triangles_vertex_buffer.points[tri_i+2] = c;
+		triangles_normal_buffer.normals[tri_i] = normal;
+		triangles_normal_buffer.normals[tri_i+1] = normal;
+		triangles_normal_buffer.normals[tri_i+2] = normal;
 
 		i += 3;
 		tri_i += 3;

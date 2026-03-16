@@ -110,7 +110,45 @@ vec4 snoise(vec3 v)
     return 105.0 * vec4(noise, grad);
 }
 
-layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+const float noise_scale = 2;
+const vec3 noise_offset = vec3(0, 0, 0);
+const vec3 player_pos = vec3(0, 0, 0);
+
+vec4 evaluate(vec3 coord)
+{   
+	float cellSize = 1.0 / 8 * noise_scale;
+	float cx = int(player_pos.x / cellSize + 0.5 * sign(player_pos.x)) * cellSize;
+	float cy = int(player_pos.y / cellSize + 0.5 * sign(player_pos.y)) * cellSize;
+	float cz = int(player_pos.z / cellSize + 0.5 * sign(player_pos.z)) * cellSize;
+	vec3 centreSnapped = vec3(cx, cy, cz);
+
+	vec3 posNorm = coord / vec3(8) - vec3(0.5);
+	vec3 worldPos = posNorm * noise_scale + centreSnapped;
+	vec3 noiseOffset = vec3(noise_offset.x, noise_offset.y, noise_offset.z);
+	vec3 samplePos = (worldPos + noiseOffset) * noise_scale / noise_scale;
+
+	float sum = 0;
+	float amplitude = 1;
+	float weight = 1;
+	
+	for (int i = 0; i < 6; i ++)
+	{
+		float noise = snoise(samplePos).x * 2 - 1;
+		noise = 1 - abs(noise);
+		noise *= noise;
+		noise *= weight;
+		weight = max(0, min(1, noise * 10));
+		sum += noise * amplitude;
+		samplePos *= 2;
+		amplitude *= 0.5;
+	}
+	float density = sum;
+	density = -(worldPos.y+100)/300 + density;
+
+	return vec4(worldPos, density);
+}
+
+layout(local_size_x = 512, local_size_y = 1, local_size_z = 1) in;
 
 layout(set = 0, binding = 0, std430) restrict readonly buffer VerticesBuffer{
 	vec4 pos[];
@@ -151,12 +189,8 @@ void main()
     vec3 pos = vertices_buffer.pos[idx].xyz;
 
     vec4 noise_value = snoise(pos * 4);
-    float density = noise_value.x;
-    vec3 normal = -normalize(noise_value.yzw);
-    //vec4 noise_value = sphere_sdf(pos);
-    //float density = noise_value.x;
-    //vec3 normal = noise_value.yzw;
+    float density = evaluate(pos).w;
 
     values_buffer.values[idx] = density;
-    normals_buffer.normals[idx] = vec4(normal, -1);
+    normals_buffer.normals[idx] = vec4(-1);
 }

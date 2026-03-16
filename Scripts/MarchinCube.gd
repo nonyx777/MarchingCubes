@@ -1,6 +1,6 @@
 extends Node
 
-var isolevel: float = 0
+var isolevel: float = 1
 var torus_parameter: Vector2 = Vector2(2, 0.5)
 var noise := FastNoiseLite.new()
 
@@ -11,7 +11,7 @@ var noise_randomness: float = 5
 var polygonize: Polygonise
 
 # grid
-var grid_size: Vector3i = Vector3i(15, 15, 15)
+var grid_size: Vector3i = Vector3i(20, 20, 20)
 var total_point_count: int
 var spacing: float = 0.5
 # grid cell related
@@ -32,9 +32,6 @@ var border_indices: PackedInt32Array
 var final_tri_vert: PackedVector3Array
 var final_tri_norm: PackedVector3Array
 var final_tri_ind: PackedInt32Array
-
-# surface
-var surface_array = Array()
 
 # Compute shader related variables
 var rd: RenderingDevice
@@ -101,6 +98,12 @@ var time: float
 var last_compute_dispatch_frame: int
 var waiting_for_compute: bool
 var num_waitframes_gpusync: int = 12
+var last_meshthread_start_frame: int
+var waiting_for_meshthread: bool
+var num_waitframes_meshthread: int = 20
+var thread
+var array_mesh: ArrayMesh
+var mesh: MeshInstance3D
 
 var counter_display_bytes: PackedByteArray
 var compact_vertex_display_bytes: PackedByteArray
@@ -109,8 +112,6 @@ var compact_normal_display_bytes: PackedByteArray
 var counter_display: int
 var compact_vertex_display: PackedFloat32Array
 var compact_normal_display: PackedFloat32Array
-
-@onready var meshInstance: MeshInstance3D = $MeshInstance3D
 
 func sphere_sdf(p: Vector3, r: float):
 	return p.length() - r
@@ -307,8 +308,17 @@ func setup_compute() -> void:
 
 func compute_pipeline() -> void:
 	var tri_size: int = grid_pos.size() * 15
-	var reset := PackedInt32Array([0]).to_byte_array()
-	rd.buffer_update(tri_count_buffer, 0, reset.size(), reset)
+	var count_reset := PackedInt32Array([0]).to_byte_array()
+	rd.buffer_update(tri_count_buffer, 0, count_reset.size(), count_reset)
+	
+	var tri_fill = PackedVector4Array()
+	tri_fill.resize(tri_pos.size())
+	tri_fill.fill(Vector4(-1, -1, -1, -1))
+	var tri_reset: PackedByteArray = tri_fill.to_byte_array()
+	
+	rd.buffer_update(tri_pos_buffer, 0, tri_reset.size(), tri_reset)
+	rd.buffer_update(tri_norm_buffer, 0, tri_reset.size(), tri_reset)
+	
 	compute_list = rd.compute_list_begin()
 	
 	# Setup Shader.....................................................................................
@@ -319,7 +329,7 @@ func compute_pipeline() -> void:
 	
 	var setupcells_params: PackedByteArray = PackedInt32Array([total_point_count, 0, 0, 0]).to_byte_array()
 	rd.compute_list_set_push_constant(compute_list, setupcells_params, setupcells_params.size())
-	rd.compute_list_dispatch(compute_list, ceil(total_point_count / 64.0), 1, 1)
+	rd.compute_list_dispatch(compute_list, ceil(total_point_count / 512.0), 1, 1)
 	
 	rd.compute_list_add_barrier(compute_list)
 	
@@ -331,7 +341,7 @@ func compute_pipeline() -> void:
 	
 	var populate_params: PackedByteArray = PackedFloat32Array([float(grid_size.x), float(border_indices.size()), isolevel, 0]).to_byte_array()
 	rd.compute_list_set_push_constant(compute_list, populate_params, populate_params.size())
-	rd.compute_list_dispatch(compute_list, ceil(total_point_count / 64.0), 1, 1)
+	rd.compute_list_dispatch(compute_list, ceil(total_point_count / 512.0), 1, 1)
 	
 	rd.compute_list_add_barrier(compute_list)
 	
@@ -343,7 +353,7 @@ func compute_pipeline() -> void:
 	
 	var mask_params: PackedByteArray = PackedInt32Array([tri_size, 0, 0, 0]).to_byte_array()
 	rd.compute_list_set_push_constant(compute_list, mask_params, mask_params.size())
-	rd.compute_list_dispatch(compute_list, ceil(tri_size / 64.0), 1, 1)
+	rd.compute_list_dispatch(compute_list, ceil(tri_size / 512.0), 1, 1)
 	
 	# Prefixsum Shader...................................................................................
 	uniform_prefixsum_set = rd.uniform_set_create([uniform_tri_pos, uniform_tri_mask, uniform_tri_prefixsum], prefixsum_shader, 0)
@@ -353,7 +363,7 @@ func compute_pipeline() -> void:
 	
 	var prefixsum_params: PackedByteArray = PackedInt32Array([tri_size, 0, 0, 0]).to_byte_array()
 	rd.compute_list_set_push_constant(compute_list, prefixsum_params, prefixsum_params.size())
-	rd.compute_list_dispatch(compute_list, ceil(tri_size / 64.0), 1, 1)
+	rd.compute_list_dispatch(compute_list, ceil(tri_size / 512.0), 1, 1)
 	
 	# Compact Shader.....................................................................................
 	uniform_compact_set = rd.uniform_set_create([uniform_tri_pos, uniform_tri_norm, uniform_tri_mask, uniform_tri_prefixsum, uniform_tri_compact_vertex, uniform_tri_compact_normal, uniform_tri_count], compact_shader, 0)
@@ -363,14 +373,14 @@ func compute_pipeline() -> void:
 	
 	var compact_params: PackedByteArray = PackedInt32Array([tri_size, 0, 0, 0]).to_byte_array()
 	rd.compute_list_set_push_constant(compute_list, compact_params, compact_params.size())
-	rd.compute_list_dispatch(compute_list, ceil(tri_size / 64.0), 1, 1)
+	rd.compute_list_dispatch(compute_list, ceil(tri_size / 512.0), 1, 1)
 	
 	rd.compute_list_end()
 	rd.submit()
 	last_compute_dispatch_frame = frame
 	waiting_for_compute = true
 
-func fetch_and_compute_data():
+func fetch_and_process_compute_data():
 	rd.sync()
 	waiting_for_compute = false
 	
@@ -389,6 +399,13 @@ func fetch_and_compute_data():
 	compact_normal_display = compact_normal_display_bytes.to_float32_array()
 	#print("Compact: ", compact_normal_display)
 	
+	thread.start(process_mesh_data)
+	waiting_for_meshthread = true
+	last_meshthread_start_frame = frame
+
+func process_mesh_data() -> void:
+	var iteration_size: int = counter_display * 4
+	
 	final_tri_vert.resize(counter_display)
 	final_tri_norm.resize(counter_display)
 	final_tri_ind.resize(counter_display)
@@ -401,37 +418,31 @@ func fetch_and_compute_data():
 	var index: int = 0
 	for i in range(0, iteration_size, 4):
 		var base: int = i
-		final_tri_vert[index] = Vector3(compact_vertex_display[base], compact_vertex_display[base+1], compact_vertex_display[base+2])
-		final_tri_norm[index] = Vector3(compact_normal_display[base], compact_normal_display[base+1], compact_normal_display[base+2])
+		var v: Vector3 = Vector3(compact_vertex_display[base], compact_vertex_display[base+1], compact_vertex_display[base+2])
+		var n: Vector3 = Vector3(compact_normal_display[base], compact_normal_display[base+1], compact_normal_display[base+2])
+		final_tri_vert[index] = v
+		final_tri_norm[index] = n
 		final_tri_ind[index] = index
 		index += 1
 	#var end_time = Time.get_ticks_msec()
 	#print("Result: ", end_time - start_time)
-	
-	#print("Final size: ", final_tri_vert.size())
-	process_mesh_data()
 
-func process_mesh_data() -> void:
-	# initialize surface array
-	meshInstance.mesh.clear_surfaces()
-	surface_array.resize(Mesh.ARRAY_MAX)
-	surface_array[Mesh.ARRAY_VERTEX] = PackedVector3Array()
-	surface_array[Mesh.ARRAY_INDEX] = PackedInt32Array()
-	surface_array[Mesh.ARRAY_NORMAL] = PackedVector3Array()
-	
+func create_mesh() -> void:
+	thread.wait_to_finish()
+	waiting_for_meshthread = false
+	print("Num tris: ", counter_display, " FPS: ", Engine.get_frames_per_second())
+
 	#var n = polygonize.Polygonize(grid_pos, grid_norm, grid_val, isolevel, grid_size.x, grid_size.y, tri_pos, tri_norm, border_indices)
 	
-	if final_tri_vert.size() != 0:
-		surface_array[Mesh.ARRAY_VERTEX] = final_tri_vert
-		surface_array[Mesh.ARRAY_INDEX] = final_tri_ind
-		surface_array[Mesh.ARRAY_NORMAL] = final_tri_norm
-		meshInstance.mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surface_array)
-	
-	#print("Points: ", grid_pos.size())
-	##print("Number of Triangles: ", n)
-	#print("Number of Vertices: ", final_tri_vert.size())
-	#print("Number of Indices: ", final_tri_ind.size())
-	#print("Number of Normals: ", final_tri_norm.size())
+	if final_tri_vert.size() > 0:
+		var mesh_data = []
+		mesh_data.resize(Mesh.ARRAY_MAX)
+		mesh_data[Mesh.ARRAY_VERTEX] = final_tri_vert
+		mesh_data[Mesh.ARRAY_NORMAL] = final_tri_norm
+		mesh_data[Mesh.ARRAY_INDEX] = final_tri_ind
+		array_mesh.clear_surfaces()
+		array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, mesh_data)
+		mesh.mesh = array_mesh
 	
 	final_tri_vert.clear()
 	final_tri_ind.clear()
@@ -439,23 +450,26 @@ func process_mesh_data() -> void:
 
 func _ready() -> void:
 	#polygonize = Polygonise.new()
+	array_mesh = ArrayMesh.new()
+	mesh = MeshInstance3D.new()
+	add_child(mesh)
+	mesh.mesh = array_mesh
+	thread = Thread.new()
 	construct_grid()
 	setup_compute()
 	compute_pipeline()
+	fetch_and_process_compute_data()
+	create_mesh()
 
 func _process(_delta: float) -> void:
 	if (waiting_for_compute && frame - last_compute_dispatch_frame >= num_waitframes_gpusync):
-		fetch_and_compute_data()
-	if (!waiting_for_compute):
+		fetch_and_process_compute_data()
+	elif (waiting_for_meshthread && frame - last_meshthread_start_frame >= num_waitframes_meshthread):
+		create_mesh()
+	elif (!waiting_for_compute && !waiting_for_meshthread):
 		isolevel = cos(frame)
 		compute_pipeline()
 	frame += 1
-
-func _on_h_slider_value_changed(value: float) -> void:
-	if waiting_for_compute:
-		return
-	isolevel = value
-	compute_pipeline()
 	
 func _exit_tree() -> void:
 	free_compute_resources()
