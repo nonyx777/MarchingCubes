@@ -100,8 +100,8 @@ var waiting_for_compute: bool
 var num_waitframes_gpusync: int = 12
 var last_meshthread_start_frame: int
 var waiting_for_meshthread: bool
-var num_waitframes_meshthread: int = 90
-var thread
+var num_waitframes_meshthread: int = 5
+var task_id: int
 var array_mesh: ArrayMesh
 var mesh: MeshInstance3D
 
@@ -397,37 +397,25 @@ func fetch_and_process_compute_data():
 	compact_normal_display_bytes = rd.buffer_get_data(tri_compact_normal_buffer, 0, trim_buffer)
 	compact_normal_display = compact_normal_display_bytes.to_float32_array()
 	#print("Compact: ", compact_normal_display)
-	
-	thread.start(process_mesh_data)
-	waiting_for_meshthread = true
-	last_meshthread_start_frame = frame
-
-func process_mesh_data() -> void:
-	var iteration_size: int = counter_display
-	
 	final_tri_vert.resize(counter_display)
 	final_tri_norm.resize(counter_display)
 	final_tri_ind.resize(counter_display)
-	
-	#print("Counter: ", counter_display)
-	#print("Size: ", final_tri_vert.size())
-	#print("Iteration Size: ", iteration_size)
-	
-	#var start_time = Time.get_ticks_msec()
-	for i in range(iteration_size):
-		var base: int = i * 4
-		var v: Vector3 = Vector3(compact_vertex_display[base], compact_vertex_display[base+1], compact_vertex_display[base+2])
-		var n: Vector3 = Vector3(compact_normal_display[base], compact_normal_display[base+1], compact_normal_display[base+2])
-		final_tri_vert[i] = v
-		final_tri_norm[i] = n
-		final_tri_ind[i] = i
-	#var end_time = Time.get_ticks_msec()
-	#print("Result: ", end_time - start_time)
+	task_id = WorkerThreadPool.add_group_task(process_mesh_data, counter_display, -1, true)
+	waiting_for_meshthread = true
+	last_meshthread_start_frame = frame
+
+func process_mesh_data(index: int) -> void:	
+	var base: int = index * 4
+	var v: Vector3 = Vector3(compact_vertex_display[base], compact_vertex_display[base+1], compact_vertex_display[base+2])
+	var n: Vector3 = Vector3(compact_normal_display[base], compact_normal_display[base+1], compact_normal_display[base+2])
+	final_tri_vert[index] = v
+	final_tri_norm[index] = n
+	final_tri_ind[index] = index
 
 func create_mesh() -> void:
-	thread.wait_to_finish()
+	WorkerThreadPool.wait_for_group_task_completion(task_id)
 	waiting_for_meshthread = false
-	print("Num tris: ", counter_display, " FPS: ", Engine.get_frames_per_second())
+	#print("Num tris: ", counter_display, " FPS: ", Engine.get_frames_per_second())
 
 	#var n = polygonize.Polygonize(grid_pos, grid_norm, grid_val, isolevel, grid_size.x, grid_size.y, tri_pos, tri_norm, border_indices)
 	
@@ -451,7 +439,6 @@ func _ready() -> void:
 	mesh = MeshInstance3D.new()
 	add_child(mesh)
 	mesh.mesh = array_mesh
-	thread = Thread.new()
 	construct_grid()
 	setup_compute()
 	compute_pipeline()
