@@ -100,7 +100,7 @@ var waiting_for_compute: bool
 var num_waitframes_gpusync: int = 12
 var last_meshthread_start_frame: int
 var waiting_for_meshthread: bool
-var num_waitframes_meshthread: int = 20
+var num_waitframes_meshthread: int = 90
 var thread
 var array_mesh: ArrayMesh
 var mesh: MeshInstance3D
@@ -388,8 +388,7 @@ func fetch_and_process_compute_data():
 	counter_display = counter_display_bytes.to_int32_array()[0]
 	#print("Counter: ", counter_display)
 	
-	var iteration_size: int = counter_display * 4
-	var trim_buffer: int = iteration_size * 4
+	var trim_buffer: int = counter_display * 4 * 4
 	
 	compact_vertex_display_bytes = rd.buffer_get_data(tri_compact_vertex_buffer, 0, trim_buffer)
 	compact_vertex_display = compact_vertex_display_bytes.to_float32_array()
@@ -404,7 +403,7 @@ func fetch_and_process_compute_data():
 	last_meshthread_start_frame = frame
 
 func process_mesh_data() -> void:
-	var iteration_size: int = counter_display * 4
+	var iteration_size: int = counter_display
 	
 	final_tri_vert.resize(counter_display)
 	final_tri_norm.resize(counter_display)
@@ -415,15 +414,13 @@ func process_mesh_data() -> void:
 	#print("Iteration Size: ", iteration_size)
 	
 	#var start_time = Time.get_ticks_msec()
-	var index: int = 0
-	for i in range(0, iteration_size, 4):
-		var base: int = i
+	for i in range(iteration_size):
+		var base: int = i * 4
 		var v: Vector3 = Vector3(compact_vertex_display[base], compact_vertex_display[base+1], compact_vertex_display[base+2])
 		var n: Vector3 = Vector3(compact_normal_display[base], compact_normal_display[base+1], compact_normal_display[base+2])
-		final_tri_vert[index] = v
-		final_tri_norm[index] = n
-		final_tri_ind[index] = index
-		index += 1
+		final_tri_vert[i] = v
+		final_tri_norm[i] = n
+		final_tri_ind[i] = i
 	#var end_time = Time.get_ticks_msec()
 	#print("Result: ", end_time - start_time)
 
